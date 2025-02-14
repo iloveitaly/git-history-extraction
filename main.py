@@ -8,10 +8,13 @@ import argparse
 import openai
 
 
-def get_git_commits(since):
+def get_git_commits(since, since_commit=None):
     # Use a unique separator to split commits.
     separator = "<<<END>>>"
-    cmd = ["git", "log", f"--since={since}", f"--pretty=format:%B{separator}"]
+    if since_commit:
+        cmd = ["git", "log", f"{since_commit}..HEAD", f"--pretty=format:%B{separator}"]
+    else:
+        cmd = ["git", "log", f"--since={since}", f"--pretty=format:%B{separator}"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         sys.exit("Error running git log")
@@ -34,7 +37,7 @@ def remove_git_trailers(commit):
 def build_prompt(commits_text):
     prompt = (
         "You are an assistant that analyzes git commit messages. "
-        "Below are commit messages (with trailers removed). "
+        "Below are commit messages. "
         "Summarize all user-facing changes and noteworthy developer changes into two separate sections. "
         "Title one section 'User-Facing Changes' and the other 'Developer Changes'. "
         "If a commit includes both types of changes, list them in the appropriate sections.\n\n"
@@ -70,16 +73,23 @@ def main():
         default="24 hours ago",
         help="ISO date/time or relative time (default: '24 hours ago')",
     )
+    parser.add_argument(
+        "--since-commit",
+        type=str,
+        help="Specific commit sha to start from (e.g. abc123). Overrides --since if provided.",
+    )
     args = parser.parse_args()
 
-    commits = get_git_commits(args.since)
+    commits = get_git_commits(args.since, args.since_commit)
     if not commits:
-        print(f"No commits found since {args.since}")
+        print("No commits found using the specified parameters.")
         sys.exit(0)
 
     processed_commits = [remove_git_trailers(commit) for commit in commits]
     commits_text = "\n\n".join(processed_commits)
     prompt = build_prompt(commits_text)
+    print(prompt)
+    return
     summary = summarize_commits(prompt)
     print(summary)
 
