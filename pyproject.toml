@@ -1,8 +1,8 @@
 [project]
 name = "git-history-extraction"
 version = "0.1.0"
-description = ""
-keywords = []
+description = "Extract and analyze git commit history with support for filtering by trailers, date ranges, and AI-powered summarization for changelogs"
+keywords = ["git", "changelog", "history", "commit", "trailers", "ai", "summarization", "openai", "gemini"]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["click>=8.0"]

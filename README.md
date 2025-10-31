@@ -1,14 +1,14 @@
 # git-history-extraction
 
-A tool to extract and analyze git commit history with support for filtering, formatting, and AI-powered summarization.
+A tool to extract and filter git commit history, making it easy to pipe to AI tools for changelog generation and summaries.
 
 ## Features
 
 - Extract git commits with metadata (SHA, date, files, message)
 - Filter commits by time range or starting commit
-- Extract and filter git trailers (e.g., `Co-authored-by`, `Reviewed-by`)
+- Extract and filter git trailers (e.g., `Co-authored-by`, `User-Facing`)
 - Output in simple text or JSON format
-- Optional AI-powered summarization via OpenAI (separate script)
+- Pipe output to AI tools (OpenAI, Gemini, Claude) for automated summarization
 
 ## Installation
 
@@ -76,9 +76,11 @@ Extract specific trailers only (case-insensitive):
 git-history-extraction --since "1 week ago" --trailers "co-authored-by,reviewed-by"
 ```
 
-## Summarizing Git History with AI
+## Piping to AI Tools for Summarization
 
-The tool enables you to extract targeted slices of git history for different audiences. For example, use git trailers like `User-Facing:` to mark end-user changes, then extract and summarize them for changelogs or internal notifications.
+This tool extracts and formats git history, making it easy to pipe to AI tools for summarization. The tool itself **does not perform AI summarization**—it prepares the data so you can use your preferred AI tool.
+
+The tool enables you to extract targeted slices of git history for different audiences. For example, use git trailers like `User-Facing:` to mark end-user changes, then extract and pipe them to AI for changelogs or internal notifications.
 
 ### Creating Structured Git Trailers with AI
 
@@ -157,12 +159,12 @@ sections. Include a 'Updates Since' with the date of the first commit in the \
 history. Remove fluff, keep it concise and information dense."
 ```
 
-### Using the OpenAI Playground Script
+### Using the OpenAI Playground Script (Optional)
 
-For AI-powered commit summarization using OpenAI, use the playground script:
+An optional playground script is included that demonstrates OpenAI integration:
 
 ```bash
-# Generate summary
+# Generate summary with OpenAI
 git-history-extraction --since "1 week ago" --format json | \
   uv run playground/summarize_commits.py
 
@@ -175,7 +177,7 @@ git-history-extraction --since "1 week ago" --format json | \
 - `OPENAI_API_KEY` environment variable
 - The script uses GPT-4o-mini by default
 
-See [playground/README.md](playground/README.md) for more details.
+This is just an example—you can pipe to any AI tool you prefer. See [playground/README.md](playground/README.md) for more details.
 
 ## Output Format
 
@@ -235,7 +237,7 @@ pytest
 ## Limitations
 
 - Large commit ranges may generate significant output; consider narrowing the time range
-- AI summarization requires network connectivity and OpenAI API access
+- This tool extracts and formats data only—AI summarization requires external tools
 - Git must be available in PATH
 
 ## Requirements
