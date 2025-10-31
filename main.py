@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["click", "openai"]
+# dependencies = ["click", "openai", "structlog-config", "structlog"]
 # ///
 import subprocess
 import re
@@ -23,14 +23,27 @@ def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
 
 
 def get_git_commits(since, since_commit=None, repo_path: Path | None = None):
-    record_sep = "\x1e"
-    field_sep = "\x1f"
+    rec_sep = "\x1e"
+    fld_sep = "\x1f"
+    end_hdr = "\x1d"
 
-    pretty = f"%H%x1f%cI%x1f%B%x1e"
+    pretty = f"{rec_sep}%H{fld_sep}%cI{fld_sep}%B{end_hdr}"
     if since_commit:
-        cmd = ["git", "log", f"{since_commit}..HEAD", f"--pretty=format:{pretty}"]
+        cmd = [
+            "git",
+            "log",
+            f"{since_commit}..HEAD",
+            f"--pretty=format:{pretty}",
+            "--name-only",
+        ]
     else:
-        cmd = ["git", "log", f"--since={since}", f"--pretty=format:{pretty}"]
+        cmd = [
+            "git",
+            "log",
+            f"--since={since}",
+            f"--pretty=format:{pretty}",
+            "--name-only",
+        ]
 
     result = subprocess.run(
         cmd,
@@ -40,21 +53,29 @@ def get_git_commits(since, since_commit=None, repo_path: Path | None = None):
         cwd=str(repo_path) if repo_path else None,
     )
 
-    commits = []
-    for rec in result.stdout.split(record_sep):
-        if not rec.strip():
+    commits: list[dict] = []
+    stream = result.stdout
+    # Split on record separator introducing each commit block
+    for block in stream.split(rec_sep):
+        if not block.strip():
             continue
-        parts = rec.split(field_sep, 2)
+        # Split header/body from files using end-of-header marker
+        if end_hdr not in block:
+            continue
+        header, files_blob = block.split(end_hdr, 1)
+        parts = header.split(fld_sep, 2)
         if len(parts) != 3:
             continue
         sha, date_iso, body = parts
-        files = get_commit_files(sha.strip(), repo_path)
-        commits.append({
-            "sha": sha.strip(),
-            "date": date_iso.strip(),
-            "body": body.strip(),
-            "files": files,
-        })
+        files = [l.strip() for l in files_blob.splitlines() if l.strip()]
+        commits.append(
+            {
+                "sha": sha.strip(),
+                "date": date_iso.strip(),
+                "body": body.strip(),
+                "files": files,
+            }
+        )
 
     return commits
 
