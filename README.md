@@ -80,6 +80,69 @@ git-history-extraction --since "1 week ago" --trailers "co-authored-by,reviewed-
 
 The tool enables you to extract targeted slices of git history for different audiences. For example, use git trailers like `User-Facing:` to mark end-user changes, then extract and summarize them for changelogs or internal notifications.
 
+### Creating Structured Git Trailers with AI
+
+Combine with [aiautocommit](https://github.com/iloveitaly/aiautocommit) to automatically generate git trailers during commits. This creates a structured history that can be easily filtered and summarized for different audiences.
+
+**Example custom commit prompt for aiautocommit:**
+
+```markdown
+# IMPORTANT: Your Instructions
+
+You are an expert software developer. Generate a commit message from the `git diff` output below using these rules:
+
+## 1. Subject Line
+
+- Use a conventional commit prefix:
+  - `feat`: New features
+  - `fix`: Bug fixes, including user-visible design or style fixes.
+  - `docs`: Changes only to internal documentation (e.g., `.md`, `.rst`) or code comments.
+  - `style`: Formatting, linting, or code style changes in code files.
+  - `refactor`: Code structure improvements (no behavior changes).
+  - `build`: Updates to build scripts or configs (e.g., `Makefile`, `Justfile`, `Dockerfile`, `package.json`).
+  - `deploy`: Deployment script or IAC updates.
+  - `test`: Changes to tests
+- Add optional scope in parentheses when changes affect a specific module (e.g., `feat(auth): add login`)
+- Limit to 50 characters after the prefix and scope.
+- Use imperative mood (e.g., "improve layout").
+- Describe the intent or outcome (e.g., "prevent text overflow" not "add break-all").
+- Be specific about the change ("validate email format" not "improve validation").
+
+## 2. Extended Commit Message
+
+- Include only if changes have non-obvious implications, fix complex bugs, or introduce breaking changes.
+- Separate from subject with one blank line.
+- Use markdown bullets focusing on **why** the change was needed and **what impact** it has.
+- Mention side effects, user impact, or important trade-offs.
+
+## 3. User-facing Changes
+
+If the change is something that a end-user (not internal admin!) would see, include a `User-facing:` git trailer with a sentence
+or two explaining, to the user, what they would see differently because of this change.
+
+## 4. General Guidelines
+
+- Prioritize the purpose of changes over listing tools or properties used.
+- Keep concise; avoid obvious or verbose details.
+- Always generate a message based on the diff, even with limited context.
+
+## 5. Scopes
+
+Optional scopes (e.g., `feat(api):`):
+
+- `match`: frontend or backend changes tied
+- `site`: content, additional pages, etc for the static site content
+- `internal-admin`: internal admin changes (including CMS)
+```
+
+With this setup, commits automatically get `User-facing:` trailers. You can then extract and summarize them:
+
+```bash
+# Extract only user-facing changes from the last sprint
+git-history-extraction --since "last monday" --trailers "User-facing" | \
+  gemini -i "Create a user-friendly changelog from these changes"
+```
+
 ### Using with Gemini CLI
 
 Extract user-facing changes and generate a non-technical summary:
