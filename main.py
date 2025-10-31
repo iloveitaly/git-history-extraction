@@ -1,13 +1,12 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["click", "openai", "structlog-config", "structlog"]
+# dependencies = ["click"]
 # ///
 import subprocess
 import re
 from pathlib import Path
 import click
-from openai import OpenAI
 
 
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
@@ -133,46 +132,6 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     return collected
 
 
-def build_prompt(commits: list[dict]) -> str:
-    entries: list[str] = []
-    for c in commits:
-        body = remove_git_trailers(c["body"]) or "(no message)"
-        files = ", ".join(c.get("files", []))
-        entries.append(
-            f"Commit: {c['sha']}\nDate: {c['date']}\nFiles: {files}\n\n{body}"
-        )
-
-    commits_text = "\n\n".join(entries)
-
-    prompt = (
-        "You are an assistant that analyzes git commit messages. "
-        "Below are commit messages. "
-        "Summarize all user-facing changes and noteworthy developer changes into two separate sections. "
-        "Title one section 'User-Facing Changes' and the other 'Developer Changes'. "
-        "If a commit includes both types of changes, list them in the appropriate sections.\n\n"
-        "Commit Messages:\n"
-        f"{commits_text}\n\n"
-        "Summaries:"
-    )
-    return prompt
-
-
-def summarize_commits(prompt):
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a concise assistant that outputs only the summary.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.2,
-    )
-    return response.choices[0].message.content.strip()
-
-
 @click.command()
 @click.option(
     "--since",
@@ -193,17 +152,18 @@ def summarize_commits(prompt):
     help="Path to the git repository to summarize.",
 )
 @click.option(
-    "--dump",
-    is_flag=True,
-    help="Print the prompt and exit without calling OpenAI.",
-)
-@click.option(
     "--trailers",
     type=str,
     default=None,
     help="Comma-separated trailer key(s) to output (case-insensitive).",
 )
-def main(since: str, since_commit: str | None, repo: Path, dump: bool, trailers: str | None):
+@click.option(
+    "--format",
+    type=click.Choice(["simple", "json"]),
+    default="simple",
+    help="Output format (default: simple)",
+)
+def main(since: str, since_commit: str | None, repo: Path, trailers: str | None, format: str):
     commits = get_git_commits(since, since_commit, repo_path=repo)
     if not commits:
         click.echo("No commits found using the specified parameters.")
@@ -225,13 +185,18 @@ def main(since: str, since_commit: str | None, repo: Path, dump: bool, trailers:
         click.echo("\n".join(out_lines).rstrip())
         return
 
-    prompt = build_prompt(commits)
-    if dump:
-        click.echo(prompt)
-        return
-
-    summary = summarize_commits(prompt)
-    click.echo(summary)
+    if format == "json":
+        import json
+        click.echo(json.dumps(commits, indent=2))
+    else:
+        for c in commits:
+            body = remove_git_trailers(c["body"]) or "(no message)"
+            files = ", ".join(c.get("files", []))
+            click.echo(f"Commit: {c['sha']}")
+            click.echo(f"Date: {c['date']}")
+            click.echo(f"Files: {files}")
+            click.echo(f"\n{body}\n")
+            click.echo("-" * 80)
 
 
 if __name__ == "__main__":
