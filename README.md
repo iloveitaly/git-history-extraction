@@ -76,7 +76,25 @@ Extract specific trailers only (case-insensitive):
 git-history-extraction --since "1 week ago" --trailers "co-authored-by,reviewed-by"
 ```
 
-## AI-Powered Summarization
+## Summarizing Git History with AI
+
+The tool enables you to extract targeted slices of git history for different audiences. For example, use git trailers like `User-Facing:` to mark end-user changes, then extract and summarize them for changelogs or internal notifications.
+
+### Using with Gemini CLI
+
+Extract user-facing changes and generate a non-technical summary:
+```bash
+git-history-extraction --repo . --since "last monday" \
+  --trailers "User-Facing" | \
+  gemini -i "This is a compressed git history identifying user-facing changes. \
+Can you write a 1-2 sentence overview of the changes, with a list of bullets \
+identifying changes. This is for a non-technical internal audience, letting \
+them know what the development team has done. Separate into 'new' and 'fixed' \
+sections. Include a 'Updates Since' with the date of the first commit in the \
+history. Remove fluff, keep it concise and information dense."
+```
+
+### Using the OpenAI Playground Script
 
 For AI-powered commit summarization using OpenAI, use the playground script:
 
@@ -90,7 +108,7 @@ git-history-extraction --since "1 week ago" --format json | \
   uv run playground/summarize_commits.py --dump-prompt
 ```
 
-**Requirements for summarization:**
+**Requirements:**
 - `OPENAI_API_KEY` environment variable
 - The script uses GPT-4o-mini by default
 
