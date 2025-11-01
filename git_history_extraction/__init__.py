@@ -1,7 +1,52 @@
 import subprocess
 import re
 from pathlib import Path
+from datetime import datetime, timedelta
 import click
+
+
+def get_last_monday() -> str:
+    today = datetime.now()
+    days_since_monday = today.weekday()
+    if days_since_monday == 0:
+        last_monday = today
+    else:
+        last_monday = today - timedelta(days=days_since_monday)
+
+    return last_monday.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
+    subprocess.run(
+        ["git", "fetch", "--tags"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_path) if repo_path else None,
+    )
+
+    result = subprocess.run(
+        ["git", "tag", "-l"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=str(repo_path) if repo_path else None,
+    )
+
+    version_pattern = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+    tags_with_versions: list[tuple[tuple[int, int, int], str]] = []
+
+    for tag in result.stdout.splitlines():
+        tag = tag.strip()
+        match = version_pattern.match(tag)
+        if match:
+            version = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            tags_with_versions.append((version, tag))
+
+    if not tags_with_versions:
+        return None
+
+    tags_with_versions.sort(reverse=True)
+    return tags_with_versions[0][1]
 
 
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
@@ -126,14 +171,20 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
 @click.option(
     "--since",
     type=str,
-    default="24 hours ago",
-    help="ISO date/time or relative time (default: '24 hours ago')",
+    default=None,
+    help="ISO date/time or relative time (default: last Monday)",
 )
 @click.option(
     "--since-commit",
     type=str,
     default=None,
     help="Specific commit sha to start from (e.g. abc123). Overrides --since if provided.",
+)
+@click.option(
+    "--since-last-tag",
+    is_flag=True,
+    default=False,
+    help="Use the latest version tag (X.Y.Z or vX.Y.Z) as the starting point. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
 )
 @click.option(
     "--repo",
@@ -153,7 +204,17 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     default="simple",
     help="Output format (default: simple)",
 )
-def main(since: str, since_commit: str | None, repo: Path, trailers: str | None, format: str):
+def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo: Path, trailers: str | None, format: str):
+    if since_last_tag:
+        latest_tag = get_latest_version_tag(repo)
+        if not latest_tag:
+            click.echo("No version tags found in repository.", err=True)
+            raise click.Abort()
+        since_commit = latest_tag
+
+    if since is None:
+        since = get_last_monday()
+
     commits = get_git_commits(since, since_commit, repo_path=repo)
     if not commits:
         click.echo("No commits found using the specified parameters.")
