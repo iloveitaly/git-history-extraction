@@ -240,14 +240,6 @@ TOON format is particularly useful when piping git history to AI tools, as it re
 
 ## Development
 
-The main logic lives in `git_history_extraction/__init__.py`. The tool is structured as a Python package with:
-
-- **main.py:** Entry point script
-- **git_history_extraction/:** Core module with extraction logic
-- **playground/:** Optional AI summarization scripts
-
-### Running Tests
-
 ```bash
 pytest
 ```
