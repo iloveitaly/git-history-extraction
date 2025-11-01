@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.1.0...v0.2.0) (2025-11-01)
+
+
+### Features
+
+* add since-last-tag and last Monday history options ([781f356](https://github.com/iloveitaly/git-history-extraction/commit/781f3566a9cfae4b448e8609ebcf340c8bc21742))
+
 ## 0.1.0 (2025-10-31)
 
 
