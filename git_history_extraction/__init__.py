@@ -112,7 +112,7 @@ def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]
     return file_stats
 
 
-def get_git_commits(since, since_commit=None, repo_path: Path | None = None, include_stats: bool = True):
+def get_git_commits(since, since_commit=None, repo_path: Path | None = None, include_stats: bool = False):
     rec_sep = "\x1e"
     fld_sep = "\x1f"
     end_hdr = "\x1d"
@@ -270,7 +270,8 @@ def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo
     if since is None:
         since = get_last_monday()
 
-    commits = get_git_commits(since, since_commit, repo_path=repo)
+    include_stats = format == "simple" or trailers is not None
+    commits = get_git_commits(since, since_commit, repo_path=repo, include_stats=include_stats)
     if not commits:
         click.echo("No commits found using the specified parameters.")
         return
