@@ -6,6 +6,7 @@ import click
 
 
 def get_last_monday() -> str:
+    """Return last Monday at midnight as git-compatible timestamp."""
     today = datetime.now()
     days_since_monday = today.weekday()
     if days_since_monday == 0:
@@ -17,6 +18,7 @@ def get_last_monday() -> str:
 
 
 def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
+    """Fetch and return the highest semantic version tag (X.Y.Z or vX.Y.Z)."""
     subprocess.run(
         ["git", "fetch", "--tags"],
         capture_output=True,
@@ -50,6 +52,7 @@ def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
 
 
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
+    """Return list of file paths changed in a commit."""
     cmd = ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha]
     result = subprocess.run(
         cmd,
@@ -62,6 +65,7 @@ def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
 
 
 def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]:
+    """Return detailed stats for each file in a commit: path, type (A/M/D/R/C), and line counts."""
     status_cmd = ["git", "diff-tree", "--no-commit-id", "--name-status", "-r", sha]
     status_result = subprocess.run(
         status_cmd,
@@ -113,6 +117,7 @@ def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]
 
 
 def get_git_commits(since, since_commit=None, repo_path: Path | None = None, include_stats: bool = False):
+    """Extract commits with sha, date, body, files. Optionally include per-file change stats."""
     rec_sep = "\x1e"
     fld_sep = "\x1f"
     end_hdr = "\x1d"
@@ -173,6 +178,7 @@ def get_git_commits(since, since_commit=None, repo_path: Path | None = None, inc
 
 
 def remove_git_trailers(commit_body: str) -> str:
+    """Strip trailers (key: value pairs) from end of commit message."""
     lines = commit_body.splitlines()
     trailer_regex = re.compile(r"^\s*[-*]?\s*[^:]+:\s*.*$")
 
@@ -189,6 +195,7 @@ def remove_git_trailers(commit_body: str) -> str:
 
 
 def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
+    """Extract trailers from commit body as (key, value) tuples. Deduplicates case-insensitively."""
     lines = commit_body.splitlines()
     trailer_regex = re.compile(r"^\s*[-*]?\s*([^:]+):\s*(.*)$")
 
