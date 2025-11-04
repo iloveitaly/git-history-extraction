@@ -266,7 +266,17 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     default="simple",
     help="Output format (default: simple)",
 )
-def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo: Path, trailers: str | None, format: str):
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    default=False,
+    help="Output in JSON format (shorthand for --format json)",
+)
+def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo: Path, trailers: str | None, format: str, output_json: bool):
+    if output_json:
+        format = "json"
+
     if since_last_tag:
         latest_tag = get_latest_version_tag(repo)
         if not latest_tag:

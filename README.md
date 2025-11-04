@@ -55,6 +55,8 @@ git-history-extraction --since "1 day ago"
 JSON format for piping to other tools:
 ```bash
 git-history-extraction --since "1 day ago" --format json
+# or use the shorthand:
+git-history-extraction --since "1 day ago" --json
 ```
 
 ### Commit Range Selection
@@ -212,6 +214,7 @@ Array of commit objects:
 | `--repo DIRECTORY` | Path to git repository | `.` (current directory) |
 | `--trailers TEXT` | Comma-separated trailer keys to extract | None (show all) |
 | `--format [simple\|json]` | Output format | `simple` |
+| `--json` | Output in JSON format (shorthand for `--format json`) | `false` |
 
 ## How It Works
 
