@@ -61,7 +61,58 @@ def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
     return [l.strip() for l in result.stdout.splitlines() if l.strip()]
 
 
-def get_git_commits(since, since_commit=None, repo_path: Path | None = None):
+def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]:
+    status_cmd = ["git", "diff-tree", "--no-commit-id", "--name-status", "-r", sha]
+    status_result = subprocess.run(
+        status_cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=str(repo_path) if repo_path else None,
+    )
+
+    numstat_cmd = ["git", "diff-tree", "--no-commit-id", "--numstat", "-r", sha]
+    numstat_result = subprocess.run(
+        numstat_cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=str(repo_path) if repo_path else None,
+    )
+
+    status_map = {}
+    for line in status_result.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t", 1)
+        if len(parts) == 2:
+            status, filepath = parts
+            status_map[filepath] = status
+
+    file_stats = []
+    for line in numstat_result.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 3:
+            added, deleted, filepath = parts[0], parts[1], parts[2]
+            change_type = status_map.get(filepath, "M")
+
+            added_count = 0 if added == "-" else int(added)
+            deleted_count = 0 if deleted == "-" else int(deleted)
+
+            file_stats.append({
+                "path": filepath,
+                "type": change_type,
+                "lines_added": added_count,
+                "lines_deleted": deleted_count,
+                "lines_changed": added_count + deleted_count,
+            })
+
+    return file_stats
+
+
+def get_git_commits(since, since_commit=None, repo_path: Path | None = None, include_stats: bool = True):
     rec_sep = "\x1e"
     fld_sep = "\x1f"
     end_hdr = "\x1d"
@@ -105,14 +156,18 @@ def get_git_commits(since, since_commit=None, repo_path: Path | None = None):
             continue
         sha, date_iso, body = parts
         files = [l.strip() for l in files_blob.splitlines() if l.strip()]
-        commits.append(
-            {
-                "sha": sha.strip(),
-                "date": date_iso.strip(),
-                "body": body.strip(),
-                "files": files,
-            }
-        )
+
+        commit_data = {
+            "sha": sha.strip(),
+            "date": date_iso.strip(),
+            "body": body.strip(),
+            "files": files,
+        }
+
+        if include_stats:
+            commit_data["file_stats"] = get_file_change_stats(sha.strip(), repo_path)
+
+        commits.append(commit_data)
 
     return commits
 
@@ -229,8 +284,26 @@ def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo
                 trailer_items = [t for t in trailer_items if t[0].lower() in selectors]
             if not trailer_items:
                 continue
-            files = ", ".join(c.get("files", []))
-            out_lines.append(f"Commit: {c['sha']}\nDate: {c['date']}\nFiles: {files}")
+
+            out_lines.append(f"Commit: {c['sha']}")
+            out_lines.append(f"Date: {c['date']}")
+
+            if "file_stats" in c and c["file_stats"]:
+                out_lines.append("Files:")
+                for stat in c["file_stats"]:
+                    type_label = {
+                        "A": "added",
+                        "M": "modified",
+                        "D": "deleted",
+                        "R": "renamed",
+                        "C": "copied",
+                    }.get(stat["type"], stat["type"])
+                    lines_info = f"+{stat['lines_added']}/-{stat['lines_deleted']}"
+                    out_lines.append(f"  {stat['path']} ({type_label}, {lines_info})")
+            else:
+                files = ", ".join(c.get("files", []))
+                out_lines.append(f"Files: {files}")
+
             out_lines.extend([f"{k}: {v}" for k, v in trailer_items])
             out_lines.append("")
         click.echo("\n".join(out_lines).rstrip())
@@ -242,9 +315,25 @@ def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo
     else:
         for c in commits:
             body = remove_git_trailers(c["body"]) or "(no message)"
-            files = ", ".join(c.get("files", []))
             click.echo(f"Commit: {c['sha']}")
             click.echo(f"Date: {c['date']}")
-            click.echo(f"Files: {files}")
+
+            if "file_stats" in c and c["file_stats"]:
+                click.echo("\nFiles:")
+                for stat in c["file_stats"]:
+                    type_label = {
+                        "A": "added",
+                        "M": "modified",
+                        "D": "deleted",
+                        "R": "renamed",
+                        "C": "copied",
+                    }.get(stat["type"], stat["type"])
+
+                    lines_info = f"+{stat['lines_added']}/-{stat['lines_deleted']}"
+                    click.echo(f"  {stat['path']} ({type_label}, {lines_info})")
+            else:
+                files = ", ".join(c.get("files", []))
+                click.echo(f"Files: {files}")
+
             click.echo(f"\n{body}\n")
             click.echo("-" * 80)
