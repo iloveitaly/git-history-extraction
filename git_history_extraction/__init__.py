@@ -5,6 +5,16 @@ from datetime import datetime, timedelta
 import click
 
 
+def is_git_repository(repo_path: Path) -> bool:
+    """Check if the given path is inside a git repository."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--git-dir"],
+        capture_output=True,
+        cwd=str(repo_path),
+    )
+    return result.returncode == 0
+
+
 def get_last_monday() -> str:
     """Return last Monday at midnight as git-compatible timestamp."""
     today = datetime.now()
@@ -267,6 +277,10 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     help="Output format (default: simple)",
 )
 def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo: Path, trailers: str | None, format: str):
+    if not is_git_repository(repo):
+        click.echo(f"Error: '{repo}' is not a git repository.", err=True)
+        raise click.Abort()
+
     if since_last_tag:
         latest_tag = get_latest_version_tag(repo)
         if not latest_tag:

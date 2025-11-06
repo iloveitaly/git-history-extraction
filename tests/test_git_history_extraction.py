@@ -11,8 +11,24 @@ from click.testing import CliRunner
 from git_history_extraction import (
     get_last_monday,
     get_latest_version_tag,
+    is_git_repository,
     main,
 )
+
+
+class TestIsGitRepository:
+    def test_returns_true_for_git_repository(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+
+        assert is_git_repository(repo_path) is True
+
+    def test_returns_false_for_non_git_directory(self, tmp_path):
+        non_repo_path = tmp_path / "not_a_repo"
+        non_repo_path.mkdir()
+
+        assert is_git_repository(non_repo_path) is False
 
 
 class TestGetLastMonday:
@@ -286,3 +302,15 @@ class TestCLISinceLastTag:
 
         assert result.exit_code != 0
         assert "No version tags found" in result.output
+
+
+class TestCLIGitRepositoryCheck:
+    def test_fails_when_not_a_git_repository(self, tmp_path):
+        non_repo_path = tmp_path / "not_a_repo"
+        non_repo_path.mkdir()
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--repo", str(non_repo_path)])
+
+        assert result.exit_code != 0
+        assert "is not a git repository" in result.output
