@@ -61,6 +61,18 @@ def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
     return tags_with_versions[0][1]
 
 
+def get_current_branch(repo_path: Path | None = None) -> str:
+    """Return the current git branch name."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=str(repo_path) if repo_path else None,
+    )
+    return result.stdout.strip()
+
+
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
     """Return list of file paths changed in a commit."""
     cmd = ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha]
@@ -296,6 +308,13 @@ def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo
     if not commits:
         click.echo("No commits found using the specified parameters.")
         return
+
+    if since_last_tag:
+        branch = get_current_branch(repo)
+        click.echo(f"branch: {branch}")
+        click.echo(f"version: {latest_tag}")
+        click.echo(f"commits: {len(commits)}")
+        click.echo()
 
     if trailers is not None:
         selectors = {part.strip().lower() for part in trailers.split(",") if part.strip()}
