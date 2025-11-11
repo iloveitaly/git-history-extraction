@@ -61,18 +61,6 @@ def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
     return tags_with_versions[0][1]
 
 
-def get_current_branch(repo_path: Path | None = None) -> str:
-    """Return the current git branch name."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
-    return result.stdout.strip()
-
-
 def get_default_branch(repo_path: Path | None = None) -> str:
     """Return the default branch name (main or master)."""
     for branch in ["main", "master"]:
@@ -93,7 +81,7 @@ def get_default_branch(repo_path: Path | None = None) -> str:
     if remote_result.returncode == 0:
         return remote_result.stdout.strip().replace("refs/remotes/origin/", "")
 
-    return get_current_branch(repo_path)
+    return "main"
 
 
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
