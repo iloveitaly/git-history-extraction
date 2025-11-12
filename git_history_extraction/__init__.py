@@ -1,18 +1,17 @@
-import subprocess
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
 import click
+from git import Repo, InvalidGitRepositoryError, GitCommandError
 
 
 def is_git_repository(repo_path: Path) -> bool:
     """Check if the given path is inside a git repository."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--git-dir"],
-        capture_output=True,
-        cwd=str(repo_path),
-    )
-    return result.returncode == 0
+    try:
+        Repo(repo_path)
+        return True
+    except InvalidGitRepositoryError:
+        return False
 
 
 def get_last_monday() -> str:
@@ -29,30 +28,22 @@ def get_last_monday() -> str:
 
 def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
     """Fetch and return the highest semantic version tag (X.Y.Z or vX.Y.Z)."""
-    subprocess.run(
-        ["git", "fetch", "--tags"],
-        capture_output=True,
-        text=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
+    repo = Repo(repo_path if repo_path else ".")
 
-    result = subprocess.run(
-        ["git", "tag", "-l"],
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
+    try:
+        repo.remotes.origin.fetch(tags=True)
+    except (AttributeError, GitCommandError):
+        pass
 
     version_pattern = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
     tags_with_versions: list[tuple[tuple[int, int, int], str]] = []
 
-    for tag in result.stdout.splitlines():
-        tag = tag.strip()
-        match = version_pattern.match(tag)
+    for tag in repo.tags:
+        tag_name = tag.name.strip()
+        match = version_pattern.match(tag_name)
         if match:
             version = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-            tags_with_versions.append((version, tag))
+            tags_with_versions.append((version, tag_name))
 
     if not tags_with_versions:
         return None
@@ -63,147 +54,96 @@ def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
 
 def get_default_branch(repo_path: Path | None = None) -> str:
     """Return the default branch name (main or master)."""
-    for branch in ["main", "master"]:
-        result = subprocess.run(
-            ["git", "rev-parse", "--verify", branch],
-            capture_output=True,
-            cwd=str(repo_path) if repo_path else None,
-        )
-        if result.returncode == 0:
-            return branch
+    repo = Repo(repo_path if repo_path else ".")
 
-    remote_result = subprocess.run(
-        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-        capture_output=True,
-        text=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
-    if remote_result.returncode == 0:
-        return remote_result.stdout.strip().replace("refs/remotes/origin/", "")
+    for branch in ["main", "master"]:
+        try:
+            repo.commit(branch)
+            return branch
+        except:
+            continue
+
+    try:
+        remote_head = repo.remotes.origin.refs.HEAD.ref.name
+        return remote_head.replace("origin/", "")
+    except:
+        pass
 
     return "main"
 
 
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
     """Return list of file paths changed in a commit."""
-    cmd = ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
-    return [l.strip() for l in result.stdout.splitlines() if l.strip()]
+    repo = Repo(repo_path if repo_path else ".")
+    commit = repo.commit(sha)
+    return list(commit.stats.files.keys())
 
 
 def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]:
     """Return detailed stats for each file in a commit: path, type (A/M/D/R/C), and line counts."""
-    status_cmd = ["git", "diff-tree", "--no-commit-id", "--name-status", "-r", sha]
-    status_result = subprocess.run(
-        status_cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
-
-    numstat_cmd = ["git", "diff-tree", "--no-commit-id", "--numstat", "-r", sha]
-    numstat_result = subprocess.run(
-        numstat_cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
+    repo = Repo(repo_path if repo_path else ".")
+    commit = repo.commit(sha)
 
     status_map = {}
-    for line in status_result.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split("\t", 1)
-        if len(parts) == 2:
-            status, filepath = parts
-            status_map[filepath] = status
+    if commit.parents:
+        parent = commit.parents[0]
+        diffs = parent.diff(commit)
+
+        for diff in diffs:
+            if diff.new_file:
+                status_map[diff.b_path] = "A"
+            elif diff.deleted_file:
+                status_map[diff.a_path] = "D"
+            elif diff.renamed_file:
+                status_map[diff.b_path] = "R"
+            elif diff.copied_file:
+                status_map[diff.b_path] = "C"
+            else:
+                status_map[diff.b_path or diff.a_path] = "M"
+    else:
+        for filepath in commit.stats.files.keys():
+            status_map[filepath] = "A"
 
     file_stats = []
-    for line in numstat_result.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split("\t")
-        if len(parts) >= 3:
-            added, deleted, filepath = parts[0], parts[1], parts[2]
-            change_type = status_map.get(filepath, "M")
+    for filepath, stats in commit.stats.files.items():
+        change_type = status_map.get(filepath, "M")
+        added_count = stats.get("insertions", 0)
+        deleted_count = stats.get("deletions", 0)
 
-            added_count = 0 if added == "-" else int(added)
-            deleted_count = 0 if deleted == "-" else int(deleted)
-
-            file_stats.append({
-                "path": filepath,
-                "type": change_type,
-                "lines_added": added_count,
-                "lines_deleted": deleted_count,
-                "lines_changed": added_count + deleted_count,
-            })
+        file_stats.append({
+            "path": filepath,
+            "type": change_type,
+            "lines_added": added_count,
+            "lines_deleted": deleted_count,
+            "lines_changed": added_count + deleted_count,
+        })
 
     return file_stats
 
 
 def get_git_commits(since, since_commit=None, repo_path: Path | None = None, include_stats: bool = False):
     """Extract commits with sha, date, body, files. Optionally include per-file change stats."""
-    rec_sep = "\x1e"
-    fld_sep = "\x1f"
-    end_hdr = "\x1d"
+    repo = Repo(repo_path if repo_path else ".")
 
-    pretty = f"{rec_sep}%H{fld_sep}%cI{fld_sep}%B{end_hdr}"
     if since_commit:
-        cmd = [
-            "git",
-            "log",
-            f"{since_commit}..HEAD",
-            f"--pretty=format:{pretty}",
-            "--name-only",
-        ]
+        rev = f"{since_commit}..HEAD"
+        commits_iter = repo.iter_commits(rev)
     else:
-        cmd = [
-            "git",
-            "log",
-            f"--since={since}",
-            f"--pretty=format:{pretty}",
-            "--name-only",
-        ]
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=str(repo_path) if repo_path else None,
-    )
+        commits_iter = repo.iter_commits(since=since)
 
     commits: list[dict] = []
-    stream = result.stdout
-    for block in stream.split(rec_sep):
-        if not block.strip():
-            continue
-        if end_hdr not in block:
-            continue
-        header, files_blob = block.split(end_hdr, 1)
-        parts = header.split(fld_sep, 2)
-        if len(parts) != 3:
-            continue
-        sha, date_iso, body = parts
-        files = [l.strip() for l in files_blob.splitlines() if l.strip()]
+    for commit in commits_iter:
+        files = list(commit.stats.files.keys())
 
         commit_data = {
-            "sha": sha.strip(),
-            "date": date_iso.strip(),
-            "body": body.strip(),
+            "sha": commit.hexsha,
+            "date": commit.committed_datetime.isoformat(),
+            "body": commit.message,
             "files": files,
         }
 
         if include_stats:
-            commit_data["file_stats"] = get_file_change_stats(sha.strip(), repo_path)
+            commit_data["file_stats"] = get_file_change_stats(commit.hexsha, repo_path)
 
         commits.append(commit_data)
 
