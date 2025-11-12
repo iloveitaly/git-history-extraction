@@ -1,6 +1,6 @@
 [project]
 name = "git-history-extraction"
-version = "0.2.0"
+version = "0.3.0"
 description = "Extract and analyze git commit history with support for filtering by trailers, date ranges, and AI-powered summarization for changelogs"
 keywords = ["git", "changelog", "history", "commit", "trailers", "ai", "summarization", "openai", "gemini"]
 readme = "README.md"

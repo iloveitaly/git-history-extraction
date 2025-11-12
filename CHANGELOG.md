@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.2.0...v0.3.0) (2025-11-12)
+
+
+### Features
+
+* Add git history extraction header output ([#7](https://github.com/iloveitaly/git-history-extraction/issues/7)) ([edeb861](https://github.com/iloveitaly/git-history-extraction/commit/edeb86189bc8c8081d2fb14cd1860ae21ade5990))
+* add git repository validation with clear error message ([#4](https://github.com/iloveitaly/git-history-extraction/issues/4)) ([efb12b4](https://github.com/iloveitaly/git-history-extraction/commit/efb12b4c049af2c7d7289469c06adc5b1019b92c))
+
 ## [0.2.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.1.0...v0.2.0) (2025-11-01)
 
 
