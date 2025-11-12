@@ -61,6 +61,29 @@ def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
     return tags_with_versions[0][1]
 
 
+def get_default_branch(repo_path: Path | None = None) -> str:
+    """Return the default branch name (main or master)."""
+    for branch in ["main", "master"]:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", branch],
+            capture_output=True,
+            cwd=str(repo_path) if repo_path else None,
+        )
+        if result.returncode == 0:
+            return branch
+
+    remote_result = subprocess.run(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_path) if repo_path else None,
+    )
+    if remote_result.returncode == 0:
+        return remote_result.stdout.strip().replace("refs/remotes/origin/", "")
+
+    return "main"
+
+
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
     """Return list of file paths changed in a commit."""
     cmd = ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha]
@@ -296,6 +319,13 @@ def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo
     if not commits:
         click.echo("No commits found using the specified parameters.")
         return
+
+    if since_last_tag:
+        branch = get_default_branch(repo)
+        click.echo(f"branch: {branch}")
+        click.echo(f"version: {latest_tag}")
+        click.echo(f"commits: {len(commits)}")
+        click.echo()
 
     if trailers is not None:
         selectors = {part.strip().lower() for part in trailers.split(",") if part.strip()}
