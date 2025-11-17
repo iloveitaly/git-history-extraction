@@ -57,6 +57,11 @@ JSON format for piping to other tools:
 git-history-extraction --since "1 day ago" --format json
 ```
 
+TOON format (compact, LLM-optimized):
+```bash
+git-history-extraction --since "1 day ago" --format toon
+```
+
 ### Commit Range Selection
 
 By time range:
@@ -203,6 +208,19 @@ Array of commit objects:
 ]
 ```
 
+### TOON Format
+
+[TOON (Token-Oriented Object Notation)](https://github.com/toon-format/toon) is a compact, human-readable format designed for LLM contexts. It achieves 30-60% fewer tokens than equivalent JSON while maintaining readability:
+
+```
+sha: abc123...
+date: "2024-10-31T08:00:00-06:00"
+body: "commit message with trailers"
+files[2]: file1.py,file2.md
+```
+
+TOON format is particularly useful when piping git history to AI tools, as it reduces token usage and associated costs.
+
 ## Options
 
 | Option | Description | Default |
@@ -211,7 +229,7 @@ Array of commit objects:
 | `--since-commit TEXT` | Start from specific commit (overrides `--since`) | None |
 | `--repo DIRECTORY` | Path to git repository | `.` (current directory) |
 | `--trailers TEXT` | Comma-separated trailer keys to extract | None (show all) |
-| `--format [simple\|json]` | Output format | `simple` |
+| `--format [simple\|json\|toon]` | Output format | `simple` |
 
 ## How It Works
 
