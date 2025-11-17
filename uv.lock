@@ -42,6 +42,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "gitpython" },
+    { name = "toon-python" },
 ]
 
 [package.dev-dependencies]
@@ -53,6 +54,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "gitpython", specifier = ">=3.1.0" },
+    { name = "toon-python", specifier = ">=0.1.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -192,6 +194,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/46/cc36c679f09f27ded940281c38607716c86cf8ba4a518d524e349c8b4874/tomli-2.3.0-cp314-cp314t-win32.whl", hash = "sha256:a1f7f282fe248311650081faafa5f4732bdbfef5d45fe3f2e702fbc6f2d496e0", size = 107563, upload-time = "2025-10-08T22:01:44.233Z" },
     { url = "https://files.pythonhosted.org/packages/84/ff/426ca8683cf7b753614480484f6437f568fd2fda2edbdf57a2d3d8b27a0b/tomli-2.3.0-cp314-cp314t-win_amd64.whl", hash = "sha256:70a251f8d4ba2d9ac2542eecf008b3c8a9fc5c3f9f02c56a9d7952612be2fdba", size = 119756, upload-time = "2025-10-08T22:01:45.234Z" },
     { url = "https://files.pythonhosted.org/packages/77/b8/0135fadc89e73be292b473cb820b4f5a08197779206b33191e801feeae40/tomli-2.3.0-py3-none-any.whl", hash = "sha256:e95b1af3c5b07d9e643909b5abbec77cd9f1217e6d0bca72b0234736b9fb1f1b", size = 14408, upload-time = "2025-10-08T22:01:46.04Z" },
+]
+
+[[package]]
+name = "toon-python"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/c6/104805c4efa3853c875bd8d2f199e06d383cd307bbdc788f668c4178ce2d/toon_python-0.1.2.tar.gz", hash = "sha256:10420d622c043cb5d9d444f92524731ded4b536fb77194c998855bcda12be3d2", size = 85215, upload-time = "2025-10-27T14:58:20.168Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/69/017f9f27f0e6b24871ecb73cdc675231c472d4b50a89be0b6779441862cd/toon_python-0.1.2-py3-none-any.whl", hash = "sha256:0582272edbb7b244c4931f80c679c2867c7d0a64faa53f16c355fcc3b8076d8f", size = 23680, upload-time = "2025-10-27T14:58:18.627Z" },
 ]
 
 [[package]]
