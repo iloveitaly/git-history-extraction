@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
+from importlib.metadata import version
 import click
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 
@@ -203,6 +204,7 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
 
 
 @click.command()
+@click.version_option(version=version("git-history-extraction"))
 @click.option(
     "--since",
     type=str,
