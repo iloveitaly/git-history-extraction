@@ -13,6 +13,8 @@ from git_history_extraction import (
     get_latest_version_tag,
     is_git_repository,
     main,
+    remove_git_trailers,
+    extract_git_trailers,
 )
 
 
@@ -314,3 +316,35 @@ class TestCLIGitRepositoryCheck:
 
         assert result.exit_code != 0
         assert "is not a git repository" in result.output
+
+
+class TestRemoveGitTrailers:
+    def test_preserves_conventional_commit_subject(self):
+        message = "build: move dive to a dev-only toolset, bump bun version (#337)\n\n"
+        result = remove_git_trailers(message)
+        assert result == "build: move dive to a dev-only toolset, bump bun version (#337)"
+
+    def test_preserves_subject_only_commit(self):
+        message = "feat: add new feature"
+        result = remove_git_trailers(message)
+        assert result == "feat: add new feature"
+
+    def test_removes_trailers_from_end(self):
+        message = "feat: add authentication\n\nImplement user login\n\nSigned-off-by: User <user@example.com>\nReviewed-by: Reviewer <reviewer@example.com>"
+        result = remove_git_trailers(message)
+        assert result == "feat: add authentication\n\nImplement user login"
+
+    def test_preserves_body_with_colons(self):
+        message = "fix: resolve issue\n\nThe problem was in the config file"
+        result = remove_git_trailers(message)
+        assert result == "fix: resolve issue\n\nThe problem was in the config file"
+
+    def test_handles_empty_message(self):
+        message = ""
+        result = remove_git_trailers(message)
+        assert result == ""
+
+    def test_removes_only_trailing_trailers(self):
+        message = "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here\n\nSigned-off-by: Dev <dev@example.com>"
+        result = remove_git_trailers(message)
+        assert result == "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here"

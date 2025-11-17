@@ -153,13 +153,26 @@ def get_git_commits(since, since_commit=None, repo_path: Path | None = None, inc
 def remove_git_trailers(commit_body: str) -> str:
     """Strip trailers (key: value pairs) from end of commit message."""
     lines = commit_body.splitlines()
-    trailer_regex = re.compile(r"^\s*[-*]?\s*[^:]+:\s*.*$")
+    trailer_regex = re.compile(r"^\s*[-*]?\s*[A-Z][a-z-]*(-[A-Z][a-z-]*)*:\s+.+$")
+
+    if not lines:
+        return ""
 
     while lines and not lines[-1].strip():
         lines.pop()
 
-    while lines and trailer_regex.match(lines[-1]):
-        lines.pop()
+    if len(lines) <= 1:
+        return "\n".join(lines)
+
+    trailer_start_idx = len(lines)
+    for i in range(len(lines) - 1, 0, -1):
+        if trailer_regex.match(lines[i]):
+            trailer_start_idx = i
+        elif lines[i].strip():
+            break
+
+    if trailer_start_idx < len(lines) and trailer_start_idx > 1:
+        lines = lines[:trailer_start_idx]
 
     while lines and not lines[-1].strip():
         lines.pop()
