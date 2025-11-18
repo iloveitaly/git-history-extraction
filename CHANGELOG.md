@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.3.0...v0.4.0) (2025-11-18)
+
+
+### Features
+
+* add --version flag to CLI ([#10](https://github.com/iloveitaly/git-history-extraction/issues/10)) ([7758361](https://github.com/iloveitaly/git-history-extraction/commit/7758361a352b993c7846bb2a53e71e13934702ac))
+* add TOON format export option ([#12](https://github.com/iloveitaly/git-history-extraction/issues/12)) ([c38a436](https://github.com/iloveitaly/git-history-extraction/commit/c38a43685f2683a0f889a8944fe766c08eaa520f))
+* allow numeric --since-last-tag to skip N most recent tags ([#13](https://github.com/iloveitaly/git-history-extraction/issues/13)) ([3e6834b](https://github.com/iloveitaly/git-history-extraction/commit/3e6834b2550913cb43952687e3d0648cb281ef80))
+
+
+### Bug Fixes
+
+* handle single line commit ([#9](https://github.com/iloveitaly/git-history-extraction/issues/9)) ([4ab6ee5](https://github.com/iloveitaly/git-history-extraction/commit/4ab6ee52d279f47e3418e45317802ce7c95e96e5))
+
 ## [0.3.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.2.0...v0.3.0) (2025-11-12)
 
 
