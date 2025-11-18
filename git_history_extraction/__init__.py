@@ -27,8 +27,8 @@ def get_last_monday() -> str:
     return last_monday.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
-    """Fetch and return the highest semantic version tag (X.Y.Z or vX.Y.Z)."""
+def get_latest_version_tag(repo_path: Path | None = None, skip: int = 0) -> str | None:
+    """Fetch and return the Nth highest semantic version tag (X.Y.Z or vX.Y.Z), skipping N most recent tags."""
     repo = Repo(repo_path if repo_path else ".")
 
     try:
@@ -50,7 +50,11 @@ def get_latest_version_tag(repo_path: Path | None = None) -> str | None:
         return None
 
     tags_with_versions.sort(reverse=True)
-    return tags_with_versions[0][1]
+
+    if skip >= len(tags_with_versions):
+        return None
+
+    return tags_with_versions[skip][1]
 
 
 def get_default_branch(repo_path: Path | None = None) -> str:
@@ -232,9 +236,9 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
 )
 @click.option(
     "--since-last-tag",
-    is_flag=True,
-    default=False,
-    help="Use the latest version tag (X.Y.Z or vX.Y.Z) as the starting point. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
+    type=int,
+    default=None,
+    help="Use the Nth most recent version tag (X.Y.Z or vX.Y.Z) as the starting point. 0 = most recent tag (default), 1 = second most recent, etc. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
 )
 @click.option(
     "--repo",
@@ -254,15 +258,15 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     default="simple",
     help="Output format (default: simple)",
 )
-def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo: Path, trailers: str | None, format: str):
+def main(since: str | None, since_commit: str | None, since_last_tag: int | None, repo: Path, trailers: str | None, format: str):
     if not is_git_repository(repo):
         click.echo(f"Error: '{repo}' is not a git repository.", err=True)
         raise click.Abort()
 
-    if since_last_tag:
-        latest_tag = get_latest_version_tag(repo)
+    if since_last_tag is not None:
+        latest_tag = get_latest_version_tag(repo, skip=since_last_tag)
         if not latest_tag:
-            click.echo("No version tags found in repository.", err=True)
+            click.echo(f"No version tag found at skip position {since_last_tag}.", err=True)
             raise click.Abort()
         since_commit = latest_tag
 
@@ -275,7 +279,7 @@ def main(since: str | None, since_commit: str | None, since_last_tag: bool, repo
         click.echo("No commits found using the specified parameters.")
         return
 
-    if since_last_tag:
+    if since_last_tag is not None:
         branch = get_default_branch(repo)
         click.echo(f"branch: {branch}")
         click.echo(f"version: {latest_tag}")
