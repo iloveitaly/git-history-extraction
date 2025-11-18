@@ -266,9 +266,68 @@ class TestCLISinceLastTag:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, ["--since-last-tag", "--repo", str(repo_path)])
+        result = runner.invoke(main, ["--since-last-tag=0", "--repo", str(repo_path)])
 
         assert result.exit_code == 0
+        assert "Second commit" in result.output
+        assert "Initial commit" not in result.output
+
+    def test_since_last_tag_with_skip(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+
+        (repo_path / "test.txt").write_text("initial")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "tag", "v1.0.0"], cwd=repo_path, check=True, capture_output=True
+        )
+
+        (repo_path / "test.txt").write_text("second")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Second commit"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "tag", "v2.0.0"], cwd=repo_path, check=True, capture_output=True
+        )
+
+        (repo_path / "test.txt").write_text("third")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Third commit"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--since-last-tag=1", "--repo", str(repo_path)])
+
+        assert result.exit_code == 0
+        assert "Third commit" in result.output
         assert "Second commit" in result.output
         assert "Initial commit" not in result.output
 
@@ -300,10 +359,10 @@ class TestCLISinceLastTag:
         )
 
         runner = CliRunner()
-        result = runner.invoke(main, ["--since-last-tag", "--repo", str(repo_path)])
+        result = runner.invoke(main, ["--since-last-tag=0", "--repo", str(repo_path)])
 
         assert result.exit_code != 0
-        assert "No version tags found" in result.output
+        assert "No version tag found at skip position" in result.output
 
 
 class TestCLIGitRepositoryCheck:
