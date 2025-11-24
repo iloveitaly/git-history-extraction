@@ -5,7 +5,12 @@ description = "Extract and analyze git commit history with support for filtering
 keywords = ["git", "changelog", "history", "commit", "trailers", "ai", "summarization", "openai", "gemini"]
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["click>=8.0", "gitpython>=3.1.0", "toon-python>=0.1.0"]
+dependencies = [
+    "click>=8.0",
+    "gitpython>=3.1.0",
+    "structlog-config>=0.5.0",
+    "toon-python>=0.1.0",
+]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/git-history-extraction" }
 
