@@ -1,8 +1,12 @@
 import re
+import os
+import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 from importlib.metadata import version
 import click
+import structlog
+from structlog_config import configure_logger
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 
 
@@ -258,7 +262,21 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     default="simple",
     help="Output format (default: simple)",
 )
-def main(since: str | None, since_commit: str | None, since_last_tag: int | None, repo: Path, trailers: str | None, format: str):
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable DEBUG level logging",
+)
+def main(since: str | None, since_commit: str | None, since_last_tag: int | None, repo: Path, trailers: str | None, format: str, verbose: bool):
+    # Rename format to output_format to avoid shadowing built-in format function
+    output_format = format
+    if verbose:
+        os.environ["LOG_LEVEL"] = "DEBUG"
+
+    log = configure_logger(
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+    )
+
     if not is_git_repository(repo):
         click.echo(f"Error: '{repo}' is not a git repository.", err=True)
         raise click.Abort()
@@ -273,7 +291,17 @@ def main(since: str | None, since_commit: str | None, since_last_tag: int | None
     if since is None:
         since = get_last_monday()
 
-    include_stats = format == "simple" or trailers is not None
+    branch = get_default_branch(repo)
+    log.info("selected branch", branch=branch)
+
+    if since_commit:
+        range_str = f"{since_commit}..HEAD"
+    else:
+        range_str = f"since={since}"
+
+    log.info("git commit range", range=range_str)
+
+    include_stats = output_format == "simple" or trailers is not None
     commits = get_git_commits(since, since_commit, repo_path=repo, include_stats=include_stats)
     if not commits:
         click.echo("No commits found using the specified parameters.")
@@ -320,10 +348,10 @@ def main(since: str | None, since_commit: str | None, since_last_tag: int | None
         click.echo("\n".join(out_lines).rstrip())
         return
 
-    if format == "json":
+    if output_format == "json":
         import json
         click.echo(json.dumps(commits, indent=2))
-    elif format == "toon":
+    elif output_format == "toon":
         from toon_python import encode
         click.echo(encode(commits))
     else:
