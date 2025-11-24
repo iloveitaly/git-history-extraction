@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.4.0...v0.5.0) (2025-11-24)
+
+
+### Features
+
+* add verbose logging with structlog-config ([#18](https://github.com/iloveitaly/git-history-extraction/issues/18)) ([e95bad4](https://github.com/iloveitaly/git-history-extraction/commit/e95bad4293b5a1db17be5f95b9c11e297e52b3cb))
+
+
+### Bug Fixes
+
+* remove py 3.10 ([c0ec43e](https://github.com/iloveitaly/git-history-extraction/commit/c0ec43ed515bb9c4ca72d4de6db7b53c77aa04ed))
+
 ## [0.4.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.3.0...v0.4.0) (2025-11-18)
 
 
