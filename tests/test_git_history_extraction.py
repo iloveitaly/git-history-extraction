@@ -9,12 +9,13 @@ import pytest
 from click.testing import CliRunner
 
 from git_history_extraction import (
+    extract_git_trailers,
     get_last_monday,
     get_latest_version_tag,
+    get_recent_version_tags,
     is_git_repository,
     main,
     remove_git_trailers,
-    extract_git_trailers,
 )
 
 
@@ -62,7 +63,7 @@ class TestGetLastMonday:
             assert result == "2025-01-13 00:00:00"
 
 
-class TestGetLatestVersionTag:
+class TestGetRecentVersionTags:
     def test_finds_latest_version_tag(self, tmp_path):
         repo_path = tmp_path / "test_repo"
         repo_path.mkdir()
@@ -100,9 +101,9 @@ class TestGetLatestVersionTag:
             ["git", "tag", "1.1.5"], cwd=repo_path, check=True, capture_output=True
         )
 
-        result = get_latest_version_tag(repo_path)
+        result = get_recent_version_tags(repo_path, limit=1)
 
-        assert result == "1.2.0"
+        assert result == ["1.2.0"]
 
     def test_finds_latest_version_tag_with_v_prefix(self, tmp_path):
         repo_path = tmp_path / "test_repo"
@@ -141,11 +142,11 @@ class TestGetLatestVersionTag:
             ["git", "tag", "v1.5.3"], cwd=repo_path, check=True, capture_output=True
         )
 
-        result = get_latest_version_tag(repo_path)
+        result = get_recent_version_tags(repo_path, limit=1)
 
-        assert result == "v2.1.0"
+        assert result == ["v2.1.0"]
 
-    def test_returns_none_when_no_version_tags(self, tmp_path):
+    def test_returns_empty_list_when_no_version_tags(self, tmp_path):
         repo_path = tmp_path / "test_repo"
         repo_path.mkdir()
 
@@ -179,9 +180,9 @@ class TestGetLatestVersionTag:
             ["git", "tag", "beta"], cwd=repo_path, check=True, capture_output=True
         )
 
-        result = get_latest_version_tag(repo_path)
+        result = get_recent_version_tags(repo_path)
 
-        assert result is None
+        assert result == []
 
     def test_handles_mixed_version_formats(self, tmp_path):
         repo_path = tmp_path / "test_repo"
@@ -220,13 +221,13 @@ class TestGetLatestVersionTag:
             ["git", "tag", "1.5.0"], cwd=repo_path, check=True, capture_output=True
         )
 
-        result = get_latest_version_tag(repo_path)
+        result = get_recent_version_tags(repo_path, limit=1)
 
-        assert result == "v2.0.0"
+        assert result == ["v2.0.0"]
 
 
 class TestCLISinceLastTag:
-    def test_since_last_tag_uses_latest_tag(self, tmp_path):
+    def test_since_last_tag_excludes_commits_after_tag(self, tmp_path):
         repo_path = tmp_path / "test_repo"
         repo_path.mkdir()
 
@@ -269,8 +270,70 @@ class TestCLISinceLastTag:
         result = runner.invoke(main, ["--since-last-tag=0", "--repo", str(repo_path)])
 
         assert result.exit_code == 0
-        assert "Second commit" in result.output
-        assert "Initial commit" not in result.output
+        assert "Second commit" not in result.output
+        assert "Initial commit" in result.output
+
+    def test_since_last_tag_uses_range_between_two_tags(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+
+        # Commit 1 (v1.0.0)
+        (repo_path / "file1").write_text("1")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit 1"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "tag", "v1.0.0"], cwd=repo_path, check=True, capture_output=True
+        )
+
+        # Commit 2 (Middle)
+        (repo_path / "file2").write_text("2")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit 2"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "tag", "v1.1.0"], cwd=repo_path, check=True, capture_output=True
+        )
+
+        # Commit 3 (After)
+        (repo_path / "file3").write_text("3")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit 3"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--since-last-tag", "--repo", str(repo_path)])
+
+        assert result.exit_code == 0
+        assert "Commit 2" in result.output
+        assert "Commit 3" not in result.output
+        assert "Commit 1" not in result.output
 
     def test_since_last_tag_with_skip(self, tmp_path):
         repo_path = tmp_path / "test_repo"

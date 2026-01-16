@@ -7,7 +7,14 @@ from importlib.metadata import version
 import click
 import structlog
 from structlog_config import configure_logger
-from git import Repo, InvalidGitRepositoryError, GitCommandError
+from git import Repo, InvalidGitRepositoryError, GitCommandError, BadName
+
+
+class OptionalIntOption(click.Option):
+    def __init__(self, *args, **kwargs):
+        kwargs["is_flag"] = False
+        super().__init__(*args, **kwargs)
+        self._flag_needs_value = True
 
 
 def is_git_repository(repo_path: Path) -> bool:
@@ -31,8 +38,7 @@ def get_last_monday() -> str:
     return last_monday.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def get_latest_version_tag(repo_path: Path | None = None, skip: int = 0) -> str | None:
-    """Fetch and return the Nth highest semantic version tag (X.Y.Z or vX.Y.Z), skipping N most recent tags."""
+def get_recent_version_tags(repo_path: Path | None = None, limit: int = 1) -> list[str]:
     repo = Repo(repo_path if repo_path else ".")
 
     try:
@@ -51,14 +57,19 @@ def get_latest_version_tag(repo_path: Path | None = None, skip: int = 0) -> str 
             tags_with_versions.append((version, tag_name))
 
     if not tags_with_versions:
-        return None
+        return []
 
     tags_with_versions.sort(reverse=True)
+    return [t[1] for t in tags_with_versions[:limit]]
 
-    if skip >= len(tags_with_versions):
+
+def get_latest_version_tag(repo_path: Path | None = None, skip: int = 0) -> str | None:
+    """Fetch and return the Nth highest semantic version tag (X.Y.Z or vX.Y.Z), skipping N most recent tags."""
+    tags = get_recent_version_tags(repo_path, limit=skip + 1)
+    if skip >= len(tags):
         return None
 
-    return tags_with_versions[skip][1]
+    return tags[skip]
 
 
 def get_default_branch(repo_path: Path | None = None) -> str:
@@ -69,13 +80,13 @@ def get_default_branch(repo_path: Path | None = None) -> str:
         try:
             repo.commit(branch)
             return branch
-        except:
+        except (BadName, GitCommandError):
             continue
 
     try:
         remote_head = repo.remotes.origin.refs.HEAD.ref.name
         return remote_head.replace("origin/", "")
-    except:
+    except (AttributeError, IndexError, GitCommandError):
         pass
 
     return "main"
@@ -130,15 +141,21 @@ def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]
     return file_stats
 
 
-def get_git_commits(since, since_commit=None, repo_path: Path | None = None, include_stats: bool = False):
+def get_git_commits(
+    since,
+    since_commit=None,
+    until_commit="HEAD",
+    repo_path: Path | None = None,
+    include_stats: bool = False,
+):
     """Extract commits with sha, date, body, files. Optionally include per-file change stats."""
     repo = Repo(repo_path if repo_path else ".")
 
     if since_commit:
-        rev = f"{since_commit}..HEAD"
+        rev = f"{since_commit}..{until_commit}"
         commits_iter = repo.iter_commits(rev)
     else:
-        commits_iter = repo.iter_commits(since=since)
+        commits_iter = repo.iter_commits(until_commit, since=since)
 
     commits: list[dict] = []
     for commit in commits_iter:
@@ -242,7 +259,9 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     "--since-last-tag",
     type=int,
     default=None,
-    help="Use the Nth most recent version tag (X.Y.Z or vX.Y.Z) as the starting point. 0 = most recent tag (default), 1 = second most recent, etc. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
+    flag_value=0,
+    cls=OptionalIntOption,
+    help="Use the Nth most recent version tag (X.Y.Z or vX.Y.Z) as the starting point. 0 = most recent tag (default) and will use the previous tag as the lower bound when available. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
 )
 @click.option(
     "--repo",
@@ -268,7 +287,15 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     is_flag=True,
     help="Enable DEBUG level logging",
 )
-def main(since: str | None, since_commit: str | None, since_last_tag: int | None, repo: Path, trailers: str | None, output_format: str, verbose: bool):
+def main(
+    since: str | None,
+    since_commit: str | None,
+    since_last_tag: int | None,
+    repo: Path,
+    trailers: str | None,
+    output_format: str,
+    verbose: bool,
+):
     if verbose:
         os.environ["LOG_LEVEL"] = "DEBUG"
 
@@ -280,12 +307,21 @@ def main(since: str | None, since_commit: str | None, since_last_tag: int | None
         click.echo(f"Error: '{repo}' is not a git repository.", err=True)
         raise click.Abort()
 
+    until_commit = "HEAD"
+    latest_tag = None
     if since_last_tag is not None:
-        latest_tag = get_latest_version_tag(repo, skip=since_last_tag)
-        if not latest_tag:
+        tags = get_recent_version_tags(repo, limit=since_last_tag + 2)
+        if not tags or since_last_tag >= len(tags):
             click.echo(f"No version tag found at skip position {since_last_tag}.", err=True)
             raise click.Abort()
-        since_commit = latest_tag
+
+        latest_tag = tags[since_last_tag]
+        if since_last_tag == 0:
+            until_commit = latest_tag
+            if len(tags) > 1:
+                since_commit = tags[1]
+        else:
+            since_commit = latest_tag
 
     if since is None:
         since = get_last_monday()
@@ -294,14 +330,20 @@ def main(since: str | None, since_commit: str | None, since_last_tag: int | None
     log.info("selected branch", branch=branch)
 
     if since_commit:
-        range_str = f"{since_commit}..HEAD"
+        range_str = f"{since_commit}..{until_commit}"
     else:
         range_str = f"since={since}"
 
     log.info("git commit range", range=range_str)
 
     include_stats = output_format == "simple" or trailers is not None
-    commits = get_git_commits(since, since_commit, repo_path=repo, include_stats=include_stats)
+    commits = get_git_commits(
+        since,
+        since_commit,
+        until_commit=until_commit,
+        repo_path=repo,
+        include_stats=include_stats,
+    )
     if not commits:
         click.echo("No commits found using the specified parameters.")
         return

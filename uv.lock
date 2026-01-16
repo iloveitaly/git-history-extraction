@@ -46,6 +46,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "gitpython" },
+    { name = "structlog" },
     { name = "structlog-config", version = "0.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "structlog-config", version = "0.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "toon-python" },
@@ -60,6 +61,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "gitpython", specifier = ">=3.1.0" },
+    { name = "structlog", specifier = ">=25.5.0" },
     { name = "structlog-config", specifier = ">=0.5.0" },
     { name = "toon-python", specifier = ">=0.1.0" },
 ]
