@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.5.0...v0.6.0) (2026-01-16)
+
+
+### Features
+
+* extract commits between last two version tags via cli ([aab79d3](https://github.com/iloveitaly/git-history-extraction/commit/aab79d32126b8c92ac9fbdb6b7e465bb8febc41a))
+
+
+### Documentation
+
+* remove outdated dev structure and testing section from README ([1cbfc6a](https://github.com/iloveitaly/git-history-extraction/commit/1cbfc6ab8401c4ba7fd634baa2ae7776c2aeab5a))
+
 ## [0.5.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.4.0...v0.5.0) (2025-11-24)
 
 
