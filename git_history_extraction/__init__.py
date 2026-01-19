@@ -72,9 +72,22 @@ def get_latest_version_tag(repo_path: Path | None = None, skip: int = 0) -> str 
     return tags[skip]
 
 
-def get_default_branch(repo_path: Path | None = None) -> str:
+def get_default_branch(repo_path: Path | None = None, use_remote: bool = False) -> str:
     """Return the default branch name (main or master)."""
     repo = Repo(repo_path if repo_path else ".")
+
+    if use_remote:
+        # check upstream first, then origin
+        # this is important because often when a fork is in place, the master/main branch
+        # on the origin is not kept up to date with the upstream repo
+        for remote in ["upstream", "origin"]:
+            for branch in ["main", "master"]:
+                ref = f"{remote}/{branch}"
+                try:
+                    repo.commit(ref)
+                    return ref
+                except (BadName, GitCommandError):
+                    continue
 
     for branch in ["main", "master"]:
         try:
@@ -242,7 +255,7 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
 
 
 @click.command()
-@click.version_option(version=version("git-history-extraction"))
+@click.version_option(version=version("git-history-extraction"), message="%(version)s")
 @click.option(
     "--since",
     type=str,
@@ -283,6 +296,11 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     help="Output format (default: simple)",
 )
 @click.option(
+    "--remote",
+    is_flag=True,
+    help="Use remote references (upstream then origin) instead of local. Upstream is used since often when a fork is in place, the master/main branch on the origin is not kept up to date.",
+)
+@click.option(
     "--verbose",
     is_flag=True,
     help="Enable DEBUG level logging",
@@ -294,6 +312,7 @@ def main(
     repo: Path,
     trailers: str | None,
     output_format: str,
+    remote: bool,
     verbose: bool,
 ):
     if verbose:
@@ -326,8 +345,13 @@ def main(
     if since is None:
         since = get_last_monday()
 
-    branch = get_default_branch(repo)
+    branch = get_default_branch(repo, use_remote=remote)
     log.info("selected branch", branch=branch)
+
+    if remote and until_commit == "HEAD":
+        # if we are using remote references, we want to ensure we are using the remote branch
+        # as the upper bound for the commit range, not the local HEAD
+        until_commit = branch
 
     if since_commit:
         range_str = f"{since_commit}..{until_commit}"
@@ -349,7 +373,7 @@ def main(
         return
 
     if since_last_tag is not None:
-        branch = get_default_branch(repo)
+        branch = get_default_branch(repo, use_remote=remote)
         click.echo(f"branch: {branch}")
         click.echo(f"version: {latest_tag}")
         click.echo(f"commits: {len(commits)}")
