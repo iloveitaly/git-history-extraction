@@ -227,7 +227,7 @@ class TestGetRecentVersionTags:
 
 
 class TestCLISinceLastTag:
-    def test_since_last_tag_excludes_commits_after_tag(self, tmp_path):
+    def test_since_last_tag_0_includes_commits_after_tag(self, tmp_path):
         repo_path = tmp_path / "test_repo"
         repo_path.mkdir()
 
@@ -270,10 +270,10 @@ class TestCLISinceLastTag:
         result = runner.invoke(main, ["--since-last-tag=0", "--repo", str(repo_path)])
 
         assert result.exit_code == 0
-        assert "Second commit" not in result.output
-        assert "Initial commit" in result.output
+        assert "Second commit" in result.output
+        assert "Initial commit" not in result.output
 
-    def test_since_last_tag_uses_range_between_two_tags(self, tmp_path):
+    def test_since_last_tag_0_uses_range_latest_to_head(self, tmp_path):
         repo_path = tmp_path / "test_repo"
         repo_path.mkdir()
 
@@ -331,8 +331,8 @@ class TestCLISinceLastTag:
         result = runner.invoke(main, ["--since-last-tag", "--repo", str(repo_path)])
 
         assert result.exit_code == 0
-        assert "Commit 2" in result.output
-        assert "Commit 3" not in result.output
+        assert "Commit 3" in result.output
+        assert "Commit 2" not in result.output
         assert "Commit 1" not in result.output
 
     def test_since_last_tag_with_skip(self, tmp_path):
@@ -390,7 +390,7 @@ class TestCLISinceLastTag:
         result = runner.invoke(main, ["--since-last-tag=1", "--repo", str(repo_path)])
 
         assert result.exit_code == 0
-        assert "Third commit" in result.output
+        assert "Third commit" not in result.output
         assert "Second commit" in result.output
         assert "Initial commit" not in result.output
 

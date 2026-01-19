@@ -227,7 +227,7 @@ TOON format is particularly useful when piping git history to AI tools, as it re
 |--------|-------------|---------|
 | `--since TEXT` | ISO date/time or relative time | `"24 hours ago"` |
 | `--since-commit TEXT` | Start from specific commit (overrides `--since`) | None |
-| `--since-last-tag` | Extract commits between the previous and latest version tags (Previous..Latest) | False |
+| `--since-last-tag` | Extract commits since the Nth most recent tag (Tag[N]..Tag[N-1]). 0 = LatestTag..HEAD | False |
 | `--repo DIRECTORY` | Path to git repository | `.` (current directory) |
 | `--trailers TEXT` | Comma-separated trailer keys to extract | None (show all) |
 | `--format [simple\|json\|toon]` | Output format | `simple` |

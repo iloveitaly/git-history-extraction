@@ -274,7 +274,7 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     default=None,
     flag_value=0,
     cls=OptionalIntOption,
-    help="Use the Nth most recent version tag (X.Y.Z or vX.Y.Z) as the starting point. 0 = most recent tag (default) and will use the previous tag as the lower bound when available. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
+    help="Use the Nth most recent version tag (X.Y.Z or vX.Y.Z) as the starting point. 0 = LatestTag..HEAD (default), 1 = PreviousTag..LatestTag, etc. Fetches tags from origin first. Overrides --since and --since-commit if provided.",
 )
 @click.option(
     "--repo",
@@ -329,18 +329,18 @@ def main(
     until_commit = "HEAD"
     latest_tag = None
     if since_last_tag is not None:
-        tags = get_recent_version_tags(repo, limit=since_last_tag + 2)
+        tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
         if not tags or since_last_tag >= len(tags):
             click.echo(f"No version tag found at skip position {since_last_tag}.", err=True)
             raise click.Abort()
 
         latest_tag = tags[since_last_tag]
+        since_commit = latest_tag
+
         if since_last_tag == 0:
-            until_commit = latest_tag
-            if len(tags) > 1:
-                since_commit = tags[1]
+            until_commit = "HEAD"
         else:
-            since_commit = latest_tag
+            until_commit = tags[since_last_tag - 1]
 
     if since is None:
         since = get_last_monday()

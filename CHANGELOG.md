@@ -31,6 +31,7 @@
 
 * add --version flag to CLI ([#10](https://github.com/iloveitaly/git-history-extraction/issues/10)) ([7758361](https://github.com/iloveitaly/git-history-extraction/commit/7758361a352b993c7846bb2a53e71e13934702ac))
 * add TOON format export option ([#12](https://github.com/iloveitaly/git-history-extraction/issues/12)) ([c38a436](https://github.com/iloveitaly/git-history-extraction/commit/c38a43685f2683a0f889a8944fe766c08eaa520f))
+* fix logic for --since-last-tag to correctly handle 0 as LatestTag..HEAD and 1 as PreviousTag..LatestTag
 * allow numeric --since-last-tag to skip N most recent tags ([#13](https://github.com/iloveitaly/git-history-extraction/issues/13)) ([3e6834b](https://github.com/iloveitaly/git-history-extraction/commit/3e6834b2550913cb43952687e3d0648cb281ef80))
 
 
