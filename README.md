@@ -3,7 +3,7 @@
 ![GitHub CI Status](https://github.com/iloveitaly/git-history-extraction/actions/workflows/build_and_publish.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# git-history-extraction
+# Extract Git History in an LLM Friendly Way
 
 A tool to extract and filter git commit history, making it easy to pipe to AI tools for changelog generation and summaries.
 
