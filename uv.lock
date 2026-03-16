@@ -171,7 +171,7 @@ wheels = [
 
 [[package]]
 name = "git-history-extraction"
-version = "0.7.0"
+version = "0.7.2"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -198,7 +198,7 @@ requires-dist = [
     { name = "gitpython", specifier = ">=3.1.0" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "structlog-config", specifier = ">=0.5.0" },
-    { name = "toon-format", git = "https://github.com/toon-format/toon-python" },
+    { name = "toon-format", specifier = ">=0.9.0b1" },
 ]
 
 [package.metadata.requires-dev]
@@ -600,7 +600,11 @@ wheels = [
 [[package]]
 name = "toon-format"
 version = "0.9.0b1"
-source = { git = "https://github.com/toon-format/toon-python#6b26984a01279defdcf40ab9d09bc418fe8133ac" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fa/15/d23d6d3e36aa4ec96dd5692bc7715fe17015b669e8f0d1c5c7fa906a3ceb/toon_format-0.9.0b1.tar.gz", hash = "sha256:8f391dd6ad9677c78366bd8eb6762d064a2183f67b9b7da1f348fdb6ee8738e7", size = 87398, upload-time = "2025-11-08T19:22:53.059Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/f3/27ab1d982bb81bf9ac5be70b4c774996eb8562b93c77e93c253c22be951f/toon_format-0.9.0b1-py3-none-any.whl", hash = "sha256:efeee919501f91137f017f7bed34789c067f76178111aa872a49bc8653dce3be", size = 36173, upload-time = "2025-11-08T19:22:51.523Z" },
+]
 
 [[package]]
 name = "typing-extensions"
