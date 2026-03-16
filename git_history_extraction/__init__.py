@@ -417,7 +417,7 @@ def main(
         import json
         click.echo(json.dumps(commits, indent=2))
     elif output_format == "toon":
-        from toon_python import encode
+        from toon_format import encode
         click.echo(encode(commits))
     else:
         for c in commits:

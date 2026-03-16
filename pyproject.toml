@@ -10,7 +10,7 @@ dependencies = [
     "gitpython>=3.1.0",
     "structlog>=25.5.0",
     "structlog-config>=0.5.0",
-    "toon-python>=0.1.0",
+    "toon-format>=0.1.0",
 ]
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/git-history-extraction" }
@@ -20,7 +20,7 @@ urls = { "Repository" = "https://github.com/iloveitaly/git-history-extraction" }
 git-history-extraction = "git_history_extraction:main"
 
 [build-system]
-requires = ["uv_build>=0.10.0"]
+requires = ["uv_build>=0.10.0,<0.11"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -36,6 +36,9 @@ dev = [
     "pytest-cov>=7.0.0",
     "covdefaults>=2.3.0",
 ]
+
+[tool.uv.sources]
+toon-format = { git = "https://github.com/toon-format/toon-python" }
 
 [tool.pyright]
 exclude = ["examples/", "playground/", "tmp/", ".venv/", "tests/"]
