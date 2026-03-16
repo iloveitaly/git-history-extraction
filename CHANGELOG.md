@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/iloveitaly/git-history-extraction/compare/v0.7.1...v0.7.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* Update README by removing development and requirements ([cc7e5f9](https://github.com/iloveitaly/git-history-extraction/commit/cc7e5f99a952b237bbd317af29668fb8b4059dca))
+
 ## [0.7.1](https://github.com/iloveitaly/git-history-extraction/compare/v0.7.0...v0.7.1) (2026-03-16)
 
 
