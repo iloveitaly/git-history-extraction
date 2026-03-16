@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/iloveitaly/git-history-extraction/compare/v0.7.0...v0.7.1) (2026-03-16)
+
+
+### Bug Fixes
+
+* migrate to toon-format dependency and update imports ([6568b66](https://github.com/iloveitaly/git-history-extraction/commit/6568b66c6f39484a54a298dae1c6daf4c52d10d1))
+
 ## [0.7.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.6.0...v0.7.0) (2026-01-19)
 
 
