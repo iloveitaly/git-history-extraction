@@ -1,3 +1,8 @@
+[![Release Notes](https://img.shields.io/github/release/iloveitaly/git-history-extraction)](https://github.com/iloveitaly/git-history-extraction/releases)
+[![Downloads](https://static.pepy.tech/badge/git-history-extraction/month)](https://pepy.tech/project/git-history-extraction)
+![GitHub CI Status](https://github.com/iloveitaly/git-history-extraction/actions/workflows/build_and_publish.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # git-history-extraction
 
 A tool to extract and filter git commit history, making it easy to pipe to AI tools for changelog generation and summaries.
@@ -253,6 +258,10 @@ pytest
 
 ## Requirements
 
-- Python >= 3.9
+- Python >= 3.11
 - git
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+---
+
+*This project was created from [iloveitaly/python-package-template](https://github.com/iloveitaly/python-package-template)*
