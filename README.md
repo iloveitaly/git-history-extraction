@@ -244,24 +244,11 @@ TOON format is particularly useful when piping git history to AI tools, as it re
 - Intelligently extracts git trailers from commit messages
 - No per-commit subprocess calls for optimal performance
 
-## Development
-
-```bash
-pytest
-```
-
 ## Limitations
 
 - Large commit ranges may generate significant output; consider narrowing the time range
 - This tool extracts and formats data only—AI summarization requires external tools
 - Git must be available in PATH
-
-## Requirements
-
-- Python >= 3.11
-- git
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
-
 ---
 
 *This project was created from [iloveitaly/python-package-template](https://github.com/iloveitaly/python-package-template)*
