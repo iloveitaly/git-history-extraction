@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.7.3...v0.8.0) (2026-03-18)
+
+
+### Features
+
+* remove TOON format support ([afc9342](https://github.com/iloveitaly/git-history-extraction/commit/afc9342bfce508239e5592cebaa269ab0457adeb))
+
 ## [0.7.3](https://github.com/iloveitaly/git-history-extraction/compare/v0.7.2...v0.7.3) (2026-03-16)
 
 
