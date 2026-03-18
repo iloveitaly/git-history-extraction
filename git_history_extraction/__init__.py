@@ -291,7 +291,7 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["simple", "json", "toon"]),
+    type=click.Choice(["simple", "json"]),
     default="simple",
     help="Output format (default: simple)",
 )
@@ -416,9 +416,6 @@ def main(
     if output_format == "json":
         import json
         click.echo(json.dumps(commits, indent=2))
-    elif output_format == "toon":
-        from toon_format import encode
-        click.echo(encode(commits))
     else:
         for c in commits:
             body = remove_git_trailers(c["body"]) or "(no message)"

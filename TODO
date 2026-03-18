@@ -1,0 +1,50 @@
+# TODO
+
+## Future Features
+
+### TOON Support
+To implement [TOON (Token-Oriented Object Notation)](https://github.com/toon-format/toon) support, follow these steps:
+
+1. **Add Dependency**:
+   Add `toon-format` to the `dependencies` list in `pyproject.toml`.
+   ```toml
+   dependencies = [
+       # ...
+       "toon-format>=0.9.0b1",
+   ]
+   ```
+
+2. **Update CLI Options**:
+   In `git_history_extraction/__init__.py`, update the `--format` option to include `toon`.
+   ```python
+   @click.option(
+       "--format",
+       "output_format",
+       type=click.Choice(["simple", "json", "toon"]),
+       default="simple",
+       help="Output format (default: simple)",
+   )
+   ```
+
+3. **Implement Encoder**:
+   In `git_history_extraction/__init__.py`, update the `main` function to handle the `toon` format.
+   ```python
+   elif output_format == "toon":
+       from toon_format import encode
+       click.echo(encode(commits))
+   ```
+
+4. **Add Tests**:
+   Add a test case in `tests/test_git_history_extraction.py` to verify the TOON output.
+   ```python
+   class TestCLIToonFormat:
+       def test_toon_format_output(self, tmp_path):
+           # Setup repo and commits...
+           runner = CliRunner()
+           result = runner.invoke(main, ["--format=toon", "--repo", str(repo_path)])
+           assert result.exit_code == 0
+           assert "Initial commit" in result.output
+   ```
+
+5. **Update Documentation**:
+   Add TOON format to the `README.md` features and usage sections.

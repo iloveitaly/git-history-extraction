@@ -440,45 +440,6 @@ class TestCLIGitRepositoryCheck:
         assert "is not a git repository" in result.output
 
 
-class TestCLIToonFormat:
-    def test_toon_format_output(self, tmp_path):
-        repo_path = tmp_path / "test_repo"
-        repo_path.mkdir()
-
-        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
-
-        (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
-
-        runner = CliRunner()
-        # use a wide --since to ensure the commit is picked up
-        result = runner.invoke(main, ["--format=toon", "--repo", str(repo_path), "--since", "2000-01-01 00:00:00"])
-
-        assert result.exit_code == 0
-        # TOON format output should contain commit info.
-        # Minimal check: ensure it doesn't crash and returns some content
-        assert "Initial commit" in result.output
-        assert "sha" in result.output
-
-
 class TestRemoveGitTrailers:
     def test_preserves_conventional_commit_subject(self):
         message = "build: move dive to a dev-only toolset, bump bun version (#337)\n\n"
