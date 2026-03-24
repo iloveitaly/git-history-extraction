@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.8.0...v0.9.0) (2026-03-24)
+
+
+### Features
+
+* add --branch option to extract unique branch commits ([52033aa](https://github.com/iloveitaly/git-history-extraction/commit/52033aa5cec9bfb734397362a39b6750fc24a49c))
+
 ## [0.8.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.7.3...v0.8.0) (2026-03-18)
 
 
