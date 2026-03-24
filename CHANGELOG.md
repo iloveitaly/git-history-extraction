@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.9.0...v0.10.0) (2026-03-24)
+
+
+### Features
+
+* **cli:** add branch validation and error handling ([6e82a64](https://github.com/iloveitaly/git-history-extraction/commit/6e82a64444adae37fa44a6e55e1f04db74b76e43))
+
 ## [0.9.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.8.0...v0.9.0) (2026-03-24)
 
 
