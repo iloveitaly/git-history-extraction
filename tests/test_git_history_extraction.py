@@ -1,17 +1,13 @@
 """Tests for git-history-extraction functionality."""
 
 import subprocess
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from git_history_extraction import (
-    extract_git_trailers,
     get_last_monday,
-    get_latest_version_tag,
     get_recent_version_tags,
     is_git_repository,
     main,
@@ -83,7 +79,9 @@ class TestGetRecentVersionTags:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -124,7 +122,9 @@ class TestGetRecentVersionTags:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -165,7 +165,9 @@ class TestGetRecentVersionTags:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -174,7 +176,10 @@ class TestGetRecentVersionTags:
         )
 
         subprocess.run(
-            ["git", "tag", "release-candidate"], cwd=repo_path, check=True, capture_output=True
+            ["git", "tag", "release-candidate"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "tag", "beta"], cwd=repo_path, check=True, capture_output=True
@@ -203,7 +208,9 @@ class TestGetRecentVersionTags:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -246,7 +253,9 @@ class TestCLISinceLastTag:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -258,7 +267,9 @@ class TestCLISinceLastTag:
         )
 
         (repo_path / "test.txt").write_text("second")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Second commit"],
             cwd=repo_path,
@@ -293,7 +304,9 @@ class TestCLISinceLastTag:
 
         # Commit 1 (v1.0.0)
         (repo_path / "file1").write_text("1")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Commit 1"],
             cwd=repo_path,
@@ -306,7 +319,9 @@ class TestCLISinceLastTag:
 
         # Commit 2 (Middle)
         (repo_path / "file2").write_text("2")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Commit 2"],
             cwd=repo_path,
@@ -319,7 +334,9 @@ class TestCLISinceLastTag:
 
         # Commit 3 (After)
         (repo_path / "file3").write_text("3")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Commit 3"],
             cwd=repo_path,
@@ -354,7 +371,9 @@ class TestCLISinceLastTag:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -366,7 +385,9 @@ class TestCLISinceLastTag:
         )
 
         (repo_path / "test.txt").write_text("second")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Second commit"],
             cwd=repo_path,
@@ -378,7 +399,9 @@ class TestCLISinceLastTag:
         )
 
         (repo_path / "test.txt").write_text("third")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Third commit"],
             cwd=repo_path,
@@ -413,7 +436,9 @@ class TestCLISinceLastTag:
         )
 
         (repo_path / "test.txt").write_text("initial")
-        subprocess.run(["git", "add", "."], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "add", "."], cwd=repo_path, check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
@@ -444,7 +469,9 @@ class TestRemoveGitTrailers:
     def test_preserves_conventional_commit_subject(self):
         message = "build: move dive to a dev-only toolset, bump bun version (#337)\n\n"
         result = remove_git_trailers(message)
-        assert result == "build: move dive to a dev-only toolset, bump bun version (#337)"
+        assert (
+            result == "build: move dive to a dev-only toolset, bump bun version (#337)"
+        )
 
     def test_preserves_subject_only_commit(self):
         message = "feat: add new feature"
@@ -469,7 +496,10 @@ class TestRemoveGitTrailers:
     def test_removes_only_trailing_trailers(self):
         message = "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here\n\nSigned-off-by: Dev <dev@example.com>"
         result = remove_git_trailers(message)
-        assert result == "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here"
+        assert (
+            result
+            == "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here"
+        )
 
 
 class TestCLIBranchOption:
@@ -478,18 +508,38 @@ class TestCLIBranchOption:
         repo_path.mkdir()
 
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
-        subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
-        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "main"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
 
         (repo_path / "file1.txt").write_text("content1")
         subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
-        subprocess.run(["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True
+        )
 
-        subprocess.run(["git", "checkout", "-b", "feature"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "-b", "feature"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
         (repo_path / "file2.txt").write_text("content2")
         subprocess.run(["git", "add", "file2.txt"], cwd=repo_path, check=True)
-        subprocess.run(["git", "commit", "-m", "Commit on feature"], cwd=repo_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit on feature"], cwd=repo_path, check=True
+        )
 
         runner = CliRunner()
         result = runner.invoke(main, ["--repo", str(repo_path), "--branch", "feature"])
@@ -504,7 +554,10 @@ class TestCLIBranchOption:
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
 
         runner = CliRunner()
-        result = runner.invoke(main, ["--repo", str(repo_path), "--branch", "feature", "--since", "yesterday"])
+        result = runner.invoke(
+            main,
+            ["--repo", str(repo_path), "--branch", "feature", "--since", "yesterday"],
+        )
 
         assert result.exit_code != 0
         assert "cannot be combined with --since" in result.output
@@ -514,13 +567,26 @@ class TestCLIBranchOption:
         repo_path.mkdir()
 
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
-        subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
-        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "main"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
 
         (repo_path / "file1.txt").write_text("content1")
         subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
-        subprocess.run(["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True
+        )
 
         runner = CliRunner()
         result = runner.invoke(main, ["--repo", str(repo_path), "--branch", "main"])
@@ -533,18 +599,38 @@ class TestCLIBranchOption:
         repo_path.mkdir()
 
         subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
-        subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
-        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "main"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
 
         (repo_path / "file1.txt").write_text("content1")
         subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
-        subprocess.run(["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True
+        )
 
-        subprocess.run(["git", "checkout", "-b", "feature-b"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "-b", "feature-b"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
         (repo_path / "file2.txt").write_text("content2")
         subprocess.run(["git", "add", "file2.txt"], cwd=repo_path, check=True)
-        subprocess.run(["git", "commit", "-m", "Commit on feature-b"], cwd=repo_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit on feature-b"], cwd=repo_path, check=True
+        )
 
         runner = CliRunner()
         result = runner.invoke(main, ["--repo", str(repo_path), "--branch"])

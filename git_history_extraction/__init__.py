@@ -42,7 +42,9 @@ def get_last_monday() -> str:
     else:
         last_monday = today - timedelta(days=days_since_monday)
 
-    return last_monday.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+    return last_monday.replace(hour=0, minute=0, second=0, microsecond=0).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
 
 
 def get_recent_version_tags(repo_path: Path | None = None, limit: int = 1) -> list[str]:
@@ -116,7 +118,7 @@ def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
     """Return list of file paths changed in a commit."""
     repo = Repo(repo_path if repo_path else ".")
     commit = repo.commit(sha)
-    return list(commit.stats.files.keys())
+    return [str(f) for f in commit.stats.files.keys()]
 
 
 def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]:
@@ -150,13 +152,15 @@ def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]
         added_count = stats.get("insertions", 0)
         deleted_count = stats.get("deletions", 0)
 
-        file_stats.append({
-            "path": filepath,
-            "type": change_type,
-            "lines_added": added_count,
-            "lines_deleted": deleted_count,
-            "lines_changed": added_count + deleted_count,
-        })
+        file_stats.append(
+            {
+                "path": filepath,
+                "type": change_type,
+                "lines_added": added_count,
+                "lines_deleted": deleted_count,
+                "lines_changed": added_count + deleted_count,
+            }
+        )
 
     return file_stats
 
@@ -359,9 +363,13 @@ def main(
         click.echo(f"Error: '{repo}' is not a git repository.", err=True)
         raise click.Abort()
 
+    until_commit = "HEAD"
     if branch_opt is not None:
         if since is not None or since_commit is not None or since_last_tag is not None:
-            click.echo("Error: --branch cannot be combined with --since, --since-commit, or --since-last-tag.", err=True)
+            click.echo(
+                "Error: --branch cannot be combined with --since, --since-commit, or --since-last-tag.",
+                err=True,
+            )
             raise click.Abort()
 
         repo_obj = Repo(repo)
@@ -369,26 +377,38 @@ def main(
             try:
                 target_branch = repo_obj.active_branch.name
             except TypeError:
-                click.echo("Error: Repository is in a detached HEAD state. Please specify a branch name.", err=True)
+                click.echo(
+                    "Error: Repository is in a detached HEAD state. Please specify a branch name.",
+                    err=True,
+                )
                 raise click.Abort()
         else:
             target_branch = branch_opt
 
         default_branch = get_default_branch(repo, use_remote=remote)
-        invalid_branches = [default_branch, "main", "master", f"origin/{default_branch}", f"upstream/{default_branch}"]
+        invalid_branches = [
+            default_branch,
+            "main",
+            "master",
+            f"origin/{default_branch}",
+            f"upstream/{default_branch}",
+        ]
         if target_branch in invalid_branches:
-            click.echo(f"Error: '{target_branch}' is not a valid value for --branch.", err=True)
+            click.echo(
+                f"Error: '{target_branch}' is not a valid value for --branch.", err=True
+            )
             raise click.Abort()
 
         since_commit = default_branch
         until_commit = target_branch
 
-    until_commit = until_commit if 'until_commit' in locals() else "HEAD"
     latest_tag = None
     if since_last_tag is not None:
         tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
         if not tags or since_last_tag >= len(tags):
-            click.echo(f"No version tag found at skip position {since_last_tag}.", err=True)
+            click.echo(
+                f"No version tag found at skip position {since_last_tag}.", err=True
+            )
             raise click.Abort()
 
         latest_tag = tags[since_last_tag]
@@ -437,7 +457,9 @@ def main(
         click.echo()
 
     if trailers is not None:
-        selectors = {part.strip().lower() for part in trailers.split(",") if part.strip()}
+        selectors = {
+            part.strip().lower() for part in trailers.split(",") if part.strip()
+        }
         out_lines: list[str] = []
         for c in commits:
             trailer_items = extract_git_trailers(c["body"]) or []
@@ -472,6 +494,7 @@ def main(
 
     if output_format == "json":
         import json
+
         click.echo(json.dumps(commits, indent=2))
     else:
         for c in commits:
