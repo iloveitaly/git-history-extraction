@@ -7,7 +7,7 @@ from importlib.metadata import version as get_package_version, PackageNotFoundEr
 import click
 import structlog
 from structlog_config import configure_logger
-from git import Repo, InvalidGitRepositoryError, GitCommandError, BadName
+from git import Repo, InvalidGitRepositoryError, GitCommandError, BadName, NoSuchPathError
 
 
 class OptionalIntOption(click.Option):
@@ -29,7 +29,7 @@ def is_git_repository(repo_path: Path) -> bool:
     try:
         Repo(repo_path)
         return True
-    except InvalidGitRepositoryError:
+    except (InvalidGitRepositoryError, NoSuchPathError):
         return False
 
 
@@ -281,6 +281,117 @@ def get_version() -> str:
     return pkg_version
 
 
+
+def extract_history(
+    repo_path=".",
+    since=None,
+    since_commit=None,
+    since_last_tag=None,
+    branch=None,
+    remote=False,
+    include_stats=True,
+    trailers=None,
+):
+    """
+    Extracts git history based on the provided parameters.
+    Returns a list of commit dictionaries, identical to the CLI's JSON format.
+    """
+    from pathlib import Path
+    import structlog
+    repo = Path(repo_path)
+    
+    if not is_git_repository(repo):
+        raise ValueError(f"'{repo}' is not a git repository.")
+
+    until_commit = "HEAD"
+    if branch is not None:
+        if since is not None or since_commit is not None or since_last_tag is not None:
+            raise ValueError("--branch cannot be combined with --since, --since-commit, or --since-last-tag.")
+
+        repo_obj = Repo(repo)
+        if branch == "":
+            try:
+                target_branch = repo_obj.active_branch.name
+            except TypeError:
+                raise ValueError("Repository is in a detached HEAD state. Please specify a branch name.")
+        else:
+            target_branch = branch
+
+        default_branch = get_default_branch(repo, use_remote=remote)
+        invalid_branches = [
+            default_branch,
+            "main",
+            "master",
+            f"origin/{default_branch}",
+            f"upstream/{default_branch}",
+        ]
+        if target_branch in invalid_branches:
+            raise ValueError(f"'{target_branch}' is not a valid value for --branch.")
+
+        since_commit = default_branch
+        until_commit = target_branch
+
+    latest_tag = None
+    if since_last_tag is not None:
+        tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
+        if not tags or since_last_tag >= len(tags):
+            raise ValueError(f"No version tag found at skip position {since_last_tag}.")
+
+        latest_tag = tags[since_last_tag]
+        since_commit = latest_tag
+
+        if since_last_tag == 0:
+            until_commit = "HEAD"
+        else:
+            until_commit = tags[since_last_tag - 1]
+
+    if since is None and since_commit is None and branch is None:
+        since = get_last_monday()
+
+    default_repo_branch = get_default_branch(repo, use_remote=remote)
+    
+    log = structlog.get_logger()
+    log.debug("selected branch", branch=default_repo_branch)
+
+    if remote and until_commit == "HEAD":
+        until_commit = default_repo_branch
+
+    if since_commit:
+        range_str = f"{since_commit}..{until_commit}"
+    else:
+        range_str = f"since={since}"
+
+    log.debug("git commit range", range=range_str)
+
+    commits = get_git_commits(
+        since,
+        since_commit,
+        until_commit=until_commit,
+        repo_path=repo,
+        include_stats=include_stats,
+    )
+
+    if trailers is not None:
+        if isinstance(trailers, str):
+            selectors = {part.strip().lower() for part in trailers.split(",") if part.strip()}
+        else:
+            selectors = {t.strip().lower() for t in trailers}
+            
+        filtered_commits = []
+        for c in commits:
+            trailer_items = extract_git_trailers(c["body"]) or []
+            if selectors:
+                trailer_items = [t for t in trailer_items if t[0].lower() in selectors]
+            if not trailer_items:
+                continue
+            
+            c["matched_trailers"] = trailer_items
+            filtered_commits.append(c)
+        commits = filtered_commits
+
+    return commits
+
+
 @click.command()
 @click.version_option(version=get_version(), message="%(version)s")
 @click.option(
@@ -359,115 +470,40 @@ def main(
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
     )
 
-    if not is_git_repository(repo):
-        click.echo(f"Error: '{repo}' is not a git repository.", err=True)
+    include_stats = output_format == "simple" or trailers is not None
+
+    try:
+        commits = extract_history(
+            repo_path=repo,
+            since=since,
+            since_commit=since_commit,
+            since_last_tag=since_last_tag,
+            branch=branch_opt,
+            remote=remote,
+            include_stats=include_stats,
+            trailers=trailers,
+        )
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
         raise click.Abort()
 
-    until_commit = "HEAD"
-    if branch_opt is not None:
-        if since is not None or since_commit is not None or since_last_tag is not None:
-            click.echo(
-                "Error: --branch cannot be combined with --since, --since-commit, or --since-last-tag.",
-                err=True,
-            )
-            raise click.Abort()
-
-        repo_obj = Repo(repo)
-        if branch_opt == "":
-            try:
-                target_branch = repo_obj.active_branch.name
-            except TypeError:
-                click.echo(
-                    "Error: Repository is in a detached HEAD state. Please specify a branch name.",
-                    err=True,
-                )
-                raise click.Abort()
-        else:
-            target_branch = branch_opt
-
-        default_branch = get_default_branch(repo, use_remote=remote)
-        invalid_branches = [
-            default_branch,
-            "main",
-            "master",
-            f"origin/{default_branch}",
-            f"upstream/{default_branch}",
-        ]
-        if target_branch in invalid_branches:
-            click.echo(
-                f"Error: '{target_branch}' is not a valid value for --branch.", err=True
-            )
-            raise click.Abort()
-
-        since_commit = default_branch
-        until_commit = target_branch
-
-    latest_tag = None
-    if since_last_tag is not None:
-        tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
-        if not tags or since_last_tag >= len(tags):
-            click.echo(
-                f"No version tag found at skip position {since_last_tag}.", err=True
-            )
-            raise click.Abort()
-
-        latest_tag = tags[since_last_tag]
-        since_commit = latest_tag
-
-        if since_last_tag == 0:
-            until_commit = "HEAD"
-        else:
-            until_commit = tags[since_last_tag - 1]
-
-    if since is None and since_commit is None and branch_opt is None:
-        since = get_last_monday()
-
-    branch = get_default_branch(repo, use_remote=remote)
-    log.debug("selected branch", branch=branch)
-
-    if remote and until_commit == "HEAD":
-        # if we are using remote references, we want to ensure we are using the remote branch
-        # as the upper bound for the commit range, not the local HEAD
-        until_commit = branch
-
-    if since_commit:
-        range_str = f"{since_commit}..{until_commit}"
-    else:
-        range_str = f"since={since}"
-
-    log.debug("git commit range", range=range_str)
-
-    include_stats = output_format == "simple" or trailers is not None
-    commits = get_git_commits(
-        since,
-        since_commit,
-        until_commit=until_commit,
-        repo_path=repo,
-        include_stats=include_stats,
-    )
     if not commits:
         click.echo("No commits found using the specified parameters.")
         return
 
     if since_last_tag is not None:
-        branch = get_default_branch(repo, use_remote=remote)
-        click.echo(f"branch: {branch}")
+        default_branch = get_default_branch(repo, use_remote=remote)
+        tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
+        latest_tag = tags[since_last_tag]
+        click.echo(f"branch: {default_branch}")
         click.echo(f"version: {latest_tag}")
         click.echo(f"commits: {len(commits)}")
         click.echo()
 
     if trailers is not None:
-        selectors = {
-            part.strip().lower() for part in trailers.split(",") if part.strip()
-        }
         out_lines: list[str] = []
         for c in commits:
-            trailer_items = extract_git_trailers(c["body"]) or []
-            if selectors:
-                trailer_items = [t for t in trailer_items if t[0].lower() in selectors]
-            if not trailer_items:
-                continue
-
+            trailer_items = c.get("matched_trailers", [])
             out_lines.append(f"Commit: {c['sha']}")
             out_lines.append(f"Date: {c['date']}")
 
@@ -494,7 +530,6 @@ def main(
 
     if output_format == "json":
         import json
-
         click.echo(json.dumps(commits, indent=2))
     else:
         for c in commits:

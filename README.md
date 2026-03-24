@@ -31,6 +31,24 @@ uv run git-history-extraction --help
 pip install git-history-extraction
 ```
 
+## Library Usage
+
+You can also use `git-history-extraction` as a Python library:
+
+```python
+from git_history_extraction import extract_history
+
+# Returns a list of dictionaries with sha, date, body, files, etc.
+commits = extract_history(
+    since="last monday",
+    trailers="User-facing",
+    include_stats=True
+)
+
+for commit in commits:
+    print(f"{commit['sha']}: {commit['body']}")
+```
+
 ## Usage
 
 ### Basic Examples
