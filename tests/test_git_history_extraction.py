@@ -470,3 +470,85 @@ class TestRemoveGitTrailers:
         message = "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here\n\nSigned-off-by: Dev <dev@example.com>"
         result = remove_git_trailers(message)
         assert result == "feat: new feature\n\nUser-Facing: Added new button\n\nMore details here"
+
+
+class TestCLIBranchOption:
+    def test_branch_option_gets_commits_unique_to_branch(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
+        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True, capture_output=True)
+
+        (repo_path / "file1.txt").write_text("content1")
+        subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
+        subprocess.run(["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True)
+
+        subprocess.run(["git", "checkout", "-b", "feature"], cwd=repo_path, check=True, capture_output=True)
+        (repo_path / "file2.txt").write_text("content2")
+        subprocess.run(["git", "add", "file2.txt"], cwd=repo_path, check=True)
+        subprocess.run(["git", "commit", "-m", "Commit on feature"], cwd=repo_path, check=True)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--repo", str(repo_path), "--branch", "feature"])
+
+        assert result.exit_code == 0
+        assert "Commit on feature" in result.output
+        assert "Commit on main" not in result.output
+
+    def test_branch_option_fails_when_combined_with_since(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--repo", str(repo_path), "--branch", "feature", "--since", "yesterday"])
+
+        assert result.exit_code != 0
+        assert "cannot be combined with --since" in result.output
+
+    def test_branch_option_fails_on_default_branch(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
+        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True, capture_output=True)
+
+        (repo_path / "file1.txt").write_text("content1")
+        subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
+        subprocess.run(["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--repo", str(repo_path), "--branch", "main"])
+
+        assert result.exit_code != 0
+        assert "is not a valid value for --branch" in result.output
+
+    def test_branch_option_uses_current_branch_when_empty(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
+        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True, capture_output=True)
+
+        (repo_path / "file1.txt").write_text("content1")
+        subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
+        subprocess.run(["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True)
+
+        subprocess.run(["git", "checkout", "-b", "feature-b"], cwd=repo_path, check=True, capture_output=True)
+        (repo_path / "file2.txt").write_text("content2")
+        subprocess.run(["git", "add", "file2.txt"], cwd=repo_path, check=True)
+        subprocess.run(["git", "commit", "-m", "Commit on feature-b"], cwd=repo_path, check=True)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["--repo", str(repo_path), "--branch"])
+
+        assert result.exit_code == 0
+        assert "Commit on feature-b" in result.output
+        assert "Commit on main" not in result.output

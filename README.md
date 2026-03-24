@@ -74,6 +74,15 @@ From a specific commit to HEAD:
 git-history-extraction --since-commit abc1234
 ```
 
+Unique to a branch:
+```bash
+# Gets commits on 'feature-branch' that are not on the default branch (e.g. main)
+git-history-extraction --branch feature-branch
+
+# Defaults to the current active branch if no branch is specified
+git-history-extraction --branch
+```
+
 ### Git Trailers
 
 Extract specific trailers only (case-insensitive):
@@ -215,6 +224,7 @@ Array of commit objects:
 | `--since TEXT` | ISO date/time or relative time | `"24 hours ago"` |
 | `--since-commit TEXT` | Start from specific commit (overrides `--since`) | None |
 | `--since-last-tag` | Extract commits since the Nth most recent tag (Tag[N]..Tag[N-1]). 0 = LatestTag..HEAD | False |
+| `--branch TEXT` | Get commits unique to a branch. If omitted, uses current branch. (overrides `--since`) | None |
 | `--repo DIRECTORY` | Path to git repository | `.` (current directory) |
 | `--trailers TEXT` | Comma-separated trailer keys to extract | None (show all) |
 | `--format [simple\|json]` | Output format | `simple` |
