@@ -5,11 +5,8 @@ version = "2.37.1"
 backend = "asdf:direnv"
 
 [[tools.just]]
-version = "1.48.0"
+version = "1.48.1"
 backend = "ubi:casey/just"
-
-[tools.just."platforms.macos-arm64-just"]
-checksum = "blake3:b238122584a5c4b3b8b1b84167f2a14e013602c2be125a5e3ec9c41edccda054"
 
 [[tools.python]]
 version = "3.14.3"
@@ -44,5 +41,5 @@ checksum = "sha256:2223000d2dcce0f50a8feddb8a8391ec6e5534f6f7169e10004a11ce9b438
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260320/cpython-3.14.3+20260320-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
 [[tools.uv]]
-version = "0.11.0"
+version = "0.11.2"
 backend = "asdf:uv"
