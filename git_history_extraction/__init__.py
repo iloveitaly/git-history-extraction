@@ -1,12 +1,19 @@
-import re
 import os
+import re
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
+
 import click
 import structlog
+from git import (
+    BadName,
+    GitCommandError,
+    InvalidGitRepositoryError,
+    NoSuchPathError,
+    Repo,
+)
 from structlog_config import configure_logger
-from git import Repo, InvalidGitRepositoryError, GitCommandError, BadName, NoSuchPathError
 
 from .version import __version__
 
@@ -52,7 +59,7 @@ def fetch_remote_branch(
     repo: Repo,
     remote_name: str,
     branch_name: str,
-    log: structlog.stdlib.BoundLogger,
+    log: structlog.typing.FilteringBoundLogger,
 ) -> None:
     try:
         remote = getattr(repo.remotes, remote_name)
@@ -122,7 +129,11 @@ def find_tracking_branch(
     if tracking_branch is None:
         return None
 
-    return tracking_branch.name, tracking_branch.remote_name, tracking_branch.remote_head
+    return (
+        tracking_branch.name,
+        tracking_branch.remote_name,
+        tracking_branch.remote_head,
+    )
 
 
 def find_remote_default_branch(
@@ -164,7 +175,7 @@ def get_default_branch(
     repo_path: Path | None = None,
     use_remote: bool = False,
     fetch: bool = False,
-    log: structlog.stdlib.BoundLogger | None = None,
+    log: structlog.typing.FilteringBoundLogger | None = None,
     reference_ref: str = "HEAD",
 ) -> str:
     """Return the default branch name (main or master), optionally as a remote ref."""
@@ -214,7 +225,7 @@ def get_default_branch(
 def get_recent_version_tags(
     repo_path: Path | None = None,
     limit: int = 1,
-    log: structlog.stdlib.BoundLogger | None = None,
+    log: structlog.typing.FilteringBoundLogger | None = None,
 ) -> list[str]:
     repo = Repo(repo_path if repo_path else ".")
 
@@ -404,7 +415,7 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
 
 
 def extract_history(
-    repo_path=".",
+    repo_path: Path | str = ".",
     since=None,
     since_commit=None,
     since_last_tag=None,
@@ -427,14 +438,18 @@ def extract_history(
     default_repo_branch: str | None = None
     if branch is not None:
         if since is not None or since_commit is not None or since_last_tag is not None:
-            raise ValueError("--branch cannot be combined with --since, --since-commit, or --since-last-tag.")
+            raise ValueError(
+                "--branch cannot be combined with --since, --since-commit, or --since-last-tag."
+            )
 
         repo_obj = Repo(repo)
         if branch == "":
             try:
                 target_branch = repo_obj.active_branch.name
             except TypeError:
-                raise ValueError("Repository is in a detached HEAD state. Please specify a branch name.")
+                raise ValueError(
+                    "Repository is in a detached HEAD state. Please specify a branch name."
+                ) from None
         else:
             target_branch = branch
 
@@ -509,7 +524,9 @@ def extract_history(
 
     if trailers is not None:
         if isinstance(trailers, str):
-            selectors = {part.strip().lower() for part in trailers.split(",") if part.strip()}
+            selectors = {
+                part.strip().lower() for part in trailers.split(",") if part.strip()
+            }
         else:
             selectors = {t.strip().lower() for t in trailers}
 
@@ -621,14 +638,16 @@ def main(
         )
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Abort()
+        raise click.Abort() from None
 
     if not commits:
         click.echo("No commits found using the specified parameters.")
         return
 
     if since_last_tag is not None:
-        default_branch = get_default_branch(repo, use_remote=remote, fetch=remote, log=log)
+        default_branch = get_default_branch(
+            repo, use_remote=remote, fetch=remote, log=log
+        )
         tags = get_recent_version_tags(repo, limit=since_last_tag + 1, log=log)
         latest_tag = tags[since_last_tag]
         click.echo(f"branch: {default_branch}")
@@ -666,6 +685,7 @@ def main(
 
     if output_format == "json":
         import json
+
         click.echo(json.dumps(commits, indent=2))
     else:
         for c in commits:

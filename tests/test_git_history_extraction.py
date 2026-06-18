@@ -675,8 +675,14 @@ class TestRemoteDefaultBranchDetection:
 
         origin_path = tmp_path / "origin.git"
         upstream_path = tmp_path / "upstream.git"
-        subprocess.run(["git", "init", "--bare", str(origin_path)], check=True, capture_output=True)
-        subprocess.run(["git", "init", "--bare", str(upstream_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "init", "--bare", str(origin_path)], check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "init", "--bare", str(upstream_path)],
+            check=True,
+            capture_output=True,
+        )
         subprocess.run(
             ["git", "remote", "add", "origin", str(origin_path)],
             cwd=repo_path,
