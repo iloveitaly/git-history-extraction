@@ -333,7 +333,7 @@ def extract_history(
     since_commit=None,
     since_last_tag=None,
     branch=None,
-    remote=False,
+    remote=True,
     include_stats=True,
     trailers=None,
 ):
@@ -396,12 +396,11 @@ def extract_history(
     if since is None and since_commit is None and branch is None:
         since = get_last_monday()
 
-    use_remote_ref = remote or branch is not None
     if default_repo_branch is None:
         default_repo_branch = get_default_branch(
             repo,
-            use_remote=use_remote_ref,
-            fetch=use_remote_ref,
+            use_remote=remote,
+            fetch=remote,
             log=log,
         )
 
@@ -497,9 +496,9 @@ def extract_history(
     help="Output format (default: simple)",
 )
 @click.option(
-    "--remote",
-    is_flag=True,
-    help="Use remote references (upstream then origin) instead of local. Upstream is used since often when a fork is in place, the master/main branch on the origin is not kept up to date.",
+    "--remote/--local",
+    default=True,
+    help="Use remote references (upstream then origin) instead of local (default: remote). Upstream is preferred since often when a fork is in place, the master/main branch on the origin is not kept up to date.",
 )
 @click.option(
     "--verbose",
