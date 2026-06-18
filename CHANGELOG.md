@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.10.0...v0.11.0) (2026-06-18)
+
+
+### Features
+
+* default to remote references for history extraction ([bf60253](https://github.com/iloveitaly/git-history-extraction/commit/bf602535713393cefe922319657014ca24db4a40))
+* improve default branch detection logic ([5f3096a](https://github.com/iloveitaly/git-history-extraction/commit/5f3096a653bc9224c507df8db1e220d71ea688da))
+* **version:** add versioning module and expose __version__ ([208c23c](https://github.com/iloveitaly/git-history-extraction/commit/208c23c76acb6547a0b837e2d5e7107c8c85df3c))
+
 ## [0.10.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.9.0...v0.10.0) (2026-03-24)
 
 
