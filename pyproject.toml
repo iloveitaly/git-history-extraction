@@ -2,7 +2,17 @@
 name = "git-history-extraction"
 version = "0.10.0"
 description = "Extract and analyze git commit history with support for filtering by trailers, date ranges, and AI-powered summarization for changelogs"
-keywords = ["git", "changelog", "history", "commit", "trailers", "ai", "summarization", "openai", "gemini"]
+keywords = [
+    "git",
+    "changelog",
+    "history",
+    "commit",
+    "trailers",
+    "ai",
+    "summarization",
+    "openai",
+    "gemini",
+]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,12 +24,14 @@ dependencies = [
 authors = [{ name = "Michael Bianco", email = "mike@mikebian.co" }]
 urls = { "Repository" = "https://github.com/iloveitaly/git-history-extraction" }
 
+
 # additional packaging information: https://packaging.python.org/en/latest/specifications/core-metadata/#license
 [project.scripts]
 git-history-extraction = "git_history_extraction:main"
 
+
 [build-system]
-requires = ["uv_build>=0.10.0,<0.12"]
+requires = ["uv_build>=0.11.0,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -48,6 +60,3 @@ source = ["git_history_extraction"]
 
 [tool.coverage.report]
 fail_under = 50
-
-[tool.ruff]
-extend-exclude = ["playground.py", "playground/"]

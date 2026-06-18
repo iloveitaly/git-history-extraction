@@ -3,11 +3,12 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
-from importlib.metadata import version as get_package_version, PackageNotFoundError
 import click
 import structlog
 from structlog_config import configure_logger
 from git import Repo, InvalidGitRepositoryError, GitCommandError, BadName, NoSuchPathError
+
+from .version import __version__
 
 
 class OptionalIntOption(click.Option):
@@ -47,13 +48,107 @@ def get_last_monday() -> str:
     )
 
 
-def get_recent_version_tags(repo_path: Path | None = None, limit: int = 1) -> list[str]:
+def fetch_remote_branch(
+    repo: Repo,
+    remote_name: str,
+    branch_name: str,
+    log: structlog.stdlib.BoundLogger,
+) -> None:
+    try:
+        remote = getattr(repo.remotes, remote_name)
+    except AttributeError:
+        log.warning("remote not configured", remote=remote_name)
+        return
+
+    refspec = f"+refs/heads/{branch_name}:refs/remotes/{remote_name}/{branch_name}"
+    log.info(
+        "fetching remote branch",
+        remote=remote_name,
+        branch=branch_name,
+        refspec=refspec,
+    )
+    remote.fetch(refspec=refspec)
+
+
+def find_remote_default_branch(
+    repo: Repo,
+) -> tuple[str, str, str] | None:
+    for remote_name in ["upstream", "origin"]:
+        try:
+            getattr(repo.remotes, remote_name)
+        except AttributeError:
+            continue
+
+        for branch_name in ["main", "master"]:
+            ref = f"{remote_name}/{branch_name}"
+            try:
+                repo.commit(ref)
+            except (BadName, GitCommandError):
+                continue
+
+            return ref, remote_name, branch_name
+
+    return None
+
+
+def get_default_branch(
+    repo_path: Path | None = None,
+    use_remote: bool = False,
+    fetch: bool = False,
+    log: structlog.stdlib.BoundLogger | None = None,
+) -> str:
+    """Return the default branch name (main or master), optionally as a remote ref."""
+    repo = Repo(repo_path if repo_path else ".")
+
+    if use_remote:
+        remote_ref = find_remote_default_branch(repo)
+        if remote_ref:
+            ref, remote_name, branch_name = remote_ref
+            if fetch and log:
+                fetch_remote_branch(repo, remote_name, branch_name, log)
+            if log:
+                log.info("using remote branch reference", ref=ref)
+            return ref
+
+        if log:
+            log.warning("no remote default branch found, falling back to local")
+
+    for branch in ["main", "master"]:
+        try:
+            repo.commit(branch)
+            if log:
+                log.info("using local branch reference", ref=branch)
+            return branch
+        except (BadName, GitCommandError):
+            continue
+
+    try:
+        remote_head = repo.remotes.origin.refs.HEAD.ref.name
+        if log:
+            log.info("using origin head reference", ref=remote_head)
+        return remote_head.replace("origin/", "")
+    except (AttributeError, IndexError, GitCommandError):
+        pass
+
+    if log:
+        log.info("using fallback branch reference", ref="main")
+    return "main"
+
+
+def get_recent_version_tags(
+    repo_path: Path | None = None,
+    limit: int = 1,
+    log: structlog.stdlib.BoundLogger | None = None,
+) -> list[str]:
     repo = Repo(repo_path if repo_path else ".")
 
     try:
+        if log:
+            log.info("fetching tags from origin")
         repo.remotes.origin.fetch(tags=True)
     except (AttributeError, GitCommandError):
-        pass
+        if log:
+            log.warning("failed to fetch tags from origin")
 
     version_pattern = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
     tags_with_versions: list[tuple[tuple[int, int, int], str]] = []
@@ -79,39 +174,6 @@ def get_latest_version_tag(repo_path: Path | None = None, skip: int = 0) -> str 
         return None
 
     return tags[skip]
-
-
-def get_default_branch(repo_path: Path | None = None, use_remote: bool = False) -> str:
-    """Return the default branch name (main or master)."""
-    repo = Repo(repo_path if repo_path else ".")
-
-    if use_remote:
-        # check upstream first, then origin
-        # this is important because often when a fork is in place, the master/main branch
-        # on the origin is not kept up to date with the upstream repo
-        for remote in ["upstream", "origin"]:
-            for branch in ["main", "master"]:
-                ref = f"{remote}/{branch}"
-                try:
-                    repo.commit(ref)
-                    return ref
-                except (BadName, GitCommandError):
-                    continue
-
-    for branch in ["main", "master"]:
-        try:
-            repo.commit(branch)
-            return branch
-        except (BadName, GitCommandError):
-            continue
-
-    try:
-        remote_head = repo.remotes.origin.refs.HEAD.ref.name
-        return remote_head.replace("origin/", "")
-    except (AttributeError, IndexError, GitCommandError):
-        pass
-
-    return "main"
 
 
 def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
@@ -265,23 +327,6 @@ def extract_git_trailers(commit_body: str) -> list[tuple[str, str]]:
     return collected
 
 
-def get_version() -> str:
-    """Fetch the version and append '.dev' if running from a local git repository."""
-    try:
-        pkg_version = get_package_version("git-history-extraction")
-    except PackageNotFoundError:
-        pkg_version = "0.0.0"
-
-    # Heuristic: if we see a .git directory at the project root relative to this file,
-    # it's likely a development/local clone.
-    if (Path(__file__).parent.parent / ".git").exists():
-        if ".dev" not in pkg_version:
-            return f"{pkg_version}.dev"
-
-    return pkg_version
-
-
-
 def extract_history(
     repo_path=".",
     since=None,
@@ -296,14 +341,14 @@ def extract_history(
     Extracts git history based on the provided parameters.
     Returns a list of commit dictionaries, identical to the CLI's JSON format.
     """
-    from pathlib import Path
-    import structlog
     repo = Path(repo_path)
-    
+    log = structlog.get_logger()
+
     if not is_git_repository(repo):
         raise ValueError(f"'{repo}' is not a git repository.")
 
     until_commit = "HEAD"
+    default_repo_branch: str | None = None
     if branch is not None:
         if since is not None or since_commit is not None or since_last_tag is not None:
             raise ValueError("--branch cannot be combined with --since, --since-commit, or --since-last-tag.")
@@ -317,23 +362,26 @@ def extract_history(
         else:
             target_branch = branch
 
-        default_branch = get_default_branch(repo, use_remote=remote)
-        invalid_branches = [
-            default_branch,
+        log.info("comparing branch against remote default", target_branch=target_branch)
+        default_repo_branch = get_default_branch(repo, use_remote=True, fetch=True, log=log)
+        branch_name = default_repo_branch.split("/", 1)[-1]
+        invalid_branches = {
+            default_repo_branch,
+            branch_name,
             "main",
             "master",
-            f"origin/{default_branch}",
-            f"upstream/{default_branch}",
-        ]
+            f"origin/{branch_name}",
+            f"upstream/{branch_name}",
+        }
         if target_branch in invalid_branches:
             raise ValueError(f"'{target_branch}' is not a valid value for --branch.")
 
-        since_commit = default_branch
+        since_commit = default_repo_branch
         until_commit = target_branch
 
     latest_tag = None
     if since_last_tag is not None:
-        tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
+        tags = get_recent_version_tags(repo, limit=since_last_tag + 1, log=log)
         if not tags or since_last_tag >= len(tags):
             raise ValueError(f"No version tag found at skip position {since_last_tag}.")
 
@@ -348,10 +396,16 @@ def extract_history(
     if since is None and since_commit is None and branch is None:
         since = get_last_monday()
 
-    default_repo_branch = get_default_branch(repo, use_remote=remote)
-    
-    log = structlog.get_logger()
-    log.debug("selected branch", branch=default_repo_branch)
+    use_remote_ref = remote or branch is not None
+    if default_repo_branch is None:
+        default_repo_branch = get_default_branch(
+            repo,
+            use_remote=use_remote_ref,
+            fetch=use_remote_ref,
+            log=log,
+        )
+
+    log.info("selected reference branch", branch=default_repo_branch)
 
     if remote and until_commit == "HEAD":
         until_commit = default_repo_branch
@@ -361,7 +415,7 @@ def extract_history(
     else:
         range_str = f"since={since}"
 
-    log.debug("git commit range", range=range_str)
+    log.info("git commit range", range=range_str)
 
     commits = get_git_commits(
         since,
@@ -376,7 +430,7 @@ def extract_history(
             selectors = {part.strip().lower() for part in trailers.split(",") if part.strip()}
         else:
             selectors = {t.strip().lower() for t in trailers}
-            
+
         filtered_commits = []
         for c in commits:
             trailer_items = extract_git_trailers(c["body"]) or []
@@ -384,7 +438,7 @@ def extract_history(
                 trailer_items = [t for t in trailer_items if t[0].lower() in selectors]
             if not trailer_items:
                 continue
-            
+
             c["matched_trailers"] = trailer_items
             filtered_commits.append(c)
         commits = filtered_commits
@@ -393,7 +447,7 @@ def extract_history(
 
 
 @click.command()
-@click.version_option(version=get_version(), message="%(version)s")
+@click.version_option(version=__version__, message="%(version)s")
 @click.option(
     "--since",
     type=str,
@@ -492,8 +546,8 @@ def main(
         return
 
     if since_last_tag is not None:
-        default_branch = get_default_branch(repo, use_remote=remote)
-        tags = get_recent_version_tags(repo, limit=since_last_tag + 1)
+        default_branch = get_default_branch(repo, use_remote=remote, fetch=remote, log=log)
+        tags = get_recent_version_tags(repo, limit=since_last_tag + 1, log=log)
         latest_tag = tags[since_last_tag]
         click.echo(f"branch: {default_branch}")
         click.echo(f"version: {latest_tag}")
