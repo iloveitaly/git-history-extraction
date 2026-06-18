@@ -5,8 +5,10 @@ from datetime import datetime
 from unittest.mock import patch
 
 from click.testing import CliRunner
+from git import Repo
 
 from git_history_extraction import (
+    find_remote_default_branch,
     get_last_monday,
     get_recent_version_tags,
     is_git_repository,
@@ -638,3 +640,66 @@ class TestCLIBranchOption:
         assert result.exit_code == 0
         assert "Commit on feature-b" in result.output
         assert "Commit on main" not in result.output
+
+
+class TestRemoteDefaultBranchDetection:
+    def test_prefers_tracking_branch_of_detected_mainline(self, tmp_path):
+        repo_path = tmp_path / "test_repo"
+        repo_path.mkdir()
+
+        subprocess.run(["git", "init"], cwd=repo_path, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "main"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+
+        (repo_path / "file1.txt").write_text("content1")
+        subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Commit on main"], cwd=repo_path, check=True
+        )
+
+        origin_path = tmp_path / "origin.git"
+        upstream_path = tmp_path / "upstream.git"
+        subprocess.run(["git", "init", "--bare", str(origin_path)], check=True, capture_output=True)
+        subprocess.run(["git", "init", "--bare", str(upstream_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(origin_path)],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "remote", "add", "upstream", str(upstream_path)],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "push", "-u", "origin", "main"],
+            cwd=repo_path,
+            check=True,
+            capture_output=True,
+        )
+
+        repo = Repo(repo_path)
+
+        assert find_remote_default_branch(repo, reference_ref="HEAD") == (
+            "origin/main",
+            "origin",
+            "main",
+        )

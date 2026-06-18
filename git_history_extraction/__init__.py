@@ -70,16 +70,85 @@ def fetch_remote_branch(
     remote.fetch(refspec=refspec)
 
 
-def find_remote_default_branch(
-    repo: Repo,
-) -> tuple[str, str, str] | None:
-    for remote_name in ["upstream", "origin"]:
+def get_local_branch(repo: Repo, branch_name: str):
+    try:
+        return repo.heads[branch_name]
+    except IndexError:
+        return None
+
+
+def find_local_default_branch(repo: Repo, reference_ref: str = "HEAD") -> str | None:
+    candidate_branch_names = [
+        branch_name
+        for branch_name in ["main", "master"]
+        if get_local_branch(repo, branch_name) is not None
+    ]
+
+    if not candidate_branch_names:
+        return None
+
+    if reference_ref in candidate_branch_names:
+        return reference_ref
+
+    selected_branch_name: str | None = None
+    selected_merge_base_time = -1
+
+    for branch_name in candidate_branch_names:
         try:
-            getattr(repo.remotes, remote_name)
-        except AttributeError:
+            merge_bases = repo.merge_base(reference_ref, branch_name)
+        except (BadName, GitCommandError):
             continue
 
-        for branch_name in ["main", "master"]:
+        if not merge_bases:
+            continue
+
+        newest_merge_base = max(merge_bases, key=lambda commit: commit.committed_date)
+        if newest_merge_base.committed_date > selected_merge_base_time:
+            selected_branch_name = branch_name
+            selected_merge_base_time = newest_merge_base.committed_date
+
+    return selected_branch_name
+
+
+def find_tracking_branch(
+    repo: Repo,
+    branch_name: str,
+) -> tuple[str, str, str] | None:
+    branch = get_local_branch(repo, branch_name)
+    if branch is None:
+        return None
+
+    tracking_branch = branch.tracking_branch()
+    if tracking_branch is None:
+        return None
+
+    return tracking_branch.name, tracking_branch.remote_name, tracking_branch.remote_head
+
+
+def find_remote_default_branch(
+    repo: Repo,
+    reference_ref: str = "HEAD",
+) -> tuple[str, str, str] | None:
+    local_default_branch = find_local_default_branch(repo, reference_ref)
+    if local_default_branch:
+        tracking_branch = find_tracking_branch(repo, local_default_branch)
+        if tracking_branch:
+            return tracking_branch
+
+    branch_names = [local_default_branch] if local_default_branch else []
+    branch_names.extend(
+        branch_name
+        for branch_name in ["main", "master"]
+        if branch_name not in branch_names
+    )
+
+    for branch_name in branch_names:
+        for remote_name in ["upstream", "origin"]:
+            try:
+                getattr(repo.remotes, remote_name)
+            except AttributeError:
+                continue
+
             ref = f"{remote_name}/{branch_name}"
             try:
                 repo.commit(ref)
@@ -96,12 +165,13 @@ def get_default_branch(
     use_remote: bool = False,
     fetch: bool = False,
     log: structlog.stdlib.BoundLogger | None = None,
+    reference_ref: str = "HEAD",
 ) -> str:
     """Return the default branch name (main or master), optionally as a remote ref."""
     repo = Repo(repo_path if repo_path else ".")
 
     if use_remote:
-        remote_ref = find_remote_default_branch(repo)
+        remote_ref = find_remote_default_branch(repo, reference_ref=reference_ref)
         if remote_ref:
             ref, remote_name, branch_name = remote_ref
             if fetch and log:
@@ -112,6 +182,12 @@ def get_default_branch(
 
         if log:
             log.warning("no remote default branch found, falling back to local")
+
+    local_default_branch = find_local_default_branch(repo, reference_ref=reference_ref)
+    if local_default_branch:
+        if log:
+            log.info("using local branch reference", ref=local_default_branch)
+        return local_default_branch
 
     for branch in ["main", "master"]:
         try:
@@ -363,7 +439,13 @@ def extract_history(
             target_branch = branch
 
         log.info("comparing branch against remote default", target_branch=target_branch)
-        default_repo_branch = get_default_branch(repo, use_remote=True, fetch=True, log=log)
+        default_repo_branch = get_default_branch(
+            repo,
+            use_remote=True,
+            fetch=True,
+            log=log,
+            reference_ref=target_branch,
+        )
         branch_name = default_repo_branch.split("/", 1)[-1]
         invalid_branches = {
             default_repo_branch,
@@ -402,6 +484,7 @@ def extract_history(
             use_remote=remote,
             fetch=remote,
             log=log,
+            reference_ref=until_commit,
         )
 
     log.info("selected reference branch", branch=default_repo_branch)
