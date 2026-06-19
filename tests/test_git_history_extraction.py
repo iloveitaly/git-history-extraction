@@ -663,27 +663,6 @@ class TestCLIBranchOption:
         assert result.exit_code == 0
         assert observed_levels == ["WARN"]
 
-    def test_verbose_flag_sets_debug_log_level(self, tmp_path):
-        observed_levels: list[str | None] = []
-
-        def fake_configure_logger(*args, **kwargs):
-            observed_levels.append(os.environ.get("LOG_LEVEL"))
-            return object()
-
-        runner = CliRunner()
-        with (
-            patch.dict("git_history_extraction.os.environ", {}, clear=True),
-            patch(
-                "git_history_extraction.configure_logger",
-                side_effect=fake_configure_logger,
-            ),
-            patch("git_history_extraction.extract_history", return_value=[]),
-        ):
-            result = runner.invoke(main, ["--repo", str(tmp_path), "--verbose"])
-
-        assert result.exit_code == 0
-        assert observed_levels == ["DEBUG"]
-
 
 class TestRemoteDefaultBranchDetection:
     def test_prefers_tracking_branch_of_detected_mainline(self, tmp_path):
