@@ -651,13 +651,14 @@ class TestCLIBranchOption:
 
         runner = CliRunner()
         with (
-            patch.dict("git_history_extraction.os.environ", {}, clear=True),
+            patch.dict("git_history_extraction.os.environ", {}, clear=False),
             patch(
                 "git_history_extraction.configure_logger",
                 side_effect=fake_configure_logger,
             ),
             patch("git_history_extraction.extract_history", return_value=[]),
         ):
+            os.environ.pop("LOG_LEVEL", None)
             result = runner.invoke(main, ["--repo", str(tmp_path)])
 
         assert result.exit_code == 0
