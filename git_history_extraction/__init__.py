@@ -616,6 +616,8 @@ def main(
     remote: bool,
     verbose: bool,
 ):
+    os.environ.setdefault("LOG_LEVEL", "WARN")
+
     if verbose:
         os.environ["LOG_LEVEL"] = "DEBUG"
 
