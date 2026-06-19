@@ -652,7 +652,10 @@ class TestCLIBranchOption:
         runner = CliRunner()
         with (
             patch.dict("git_history_extraction.os.environ", {}, clear=True),
-            patch("git_history_extraction.configure_logger", side_effect=fake_configure_logger),
+            patch(
+                "git_history_extraction.configure_logger",
+                side_effect=fake_configure_logger,
+            ),
             patch("git_history_extraction.extract_history", return_value=[]),
         ):
             result = runner.invoke(main, ["--repo", str(tmp_path)])
@@ -670,7 +673,10 @@ class TestCLIBranchOption:
         runner = CliRunner()
         with (
             patch.dict("git_history_extraction.os.environ", {}, clear=True),
-            patch("git_history_extraction.configure_logger", side_effect=fake_configure_logger),
+            patch(
+                "git_history_extraction.configure_logger",
+                side_effect=fake_configure_logger,
+            ),
             patch("git_history_extraction.extract_history", return_value=[]),
         ):
             result = runner.invoke(main, ["--repo", str(tmp_path), "--verbose"])
