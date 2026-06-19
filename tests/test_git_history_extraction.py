@@ -1,5 +1,6 @@
 """Tests for git-history-extraction functionality."""
 
+import os
 import subprocess
 from datetime import datetime
 from unittest.mock import patch
@@ -640,6 +641,28 @@ class TestCLIBranchOption:
         assert result.exit_code == 0
         assert "Commit on feature-b" in result.output
         assert "Commit on main" not in result.output
+
+    def test_main_defaults_log_level_to_warn(self, tmp_path):
+        observed_levels: list[str | None] = []
+
+        def fake_configure_logger(*args, **kwargs):
+            observed_levels.append(os.environ.get("LOG_LEVEL"))
+            return object()
+
+        runner = CliRunner()
+        with (
+            patch.dict("git_history_extraction.os.environ", {}, clear=False),
+            patch(
+                "git_history_extraction.configure_logger",
+                side_effect=fake_configure_logger,
+            ),
+            patch("git_history_extraction.extract_history", return_value=[]),
+        ):
+            os.environ.pop("LOG_LEVEL", None)
+            result = runner.invoke(main, ["--repo", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert observed_levels == ["WARN"]
 
 
 class TestRemoteDefaultBranchDetection:
