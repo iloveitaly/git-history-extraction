@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/iloveitaly/git-history-extraction/compare/v0.11.0...v0.11.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* default CLI logging to WARN without changing env defaults ([00f2e2b](https://github.com/iloveitaly/git-history-extraction/commit/00f2e2b41ccf59cf1f5ff5734e3bd27ed5bcccd2))
+
 ## [0.11.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.10.0...v0.11.0) (2026-06-18)
 
 
