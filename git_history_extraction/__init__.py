@@ -1,4 +1,3 @@
-import os
 import re
 import sys
 from datetime import datetime, timedelta
@@ -64,11 +63,11 @@ def fetch_remote_branch(
     try:
         remote = getattr(repo.remotes, remote_name)
     except AttributeError:
-        log.warning("remote not configured", remote=remote_name)
+        log.debug("remote not configured", remote=remote_name)
         return
 
     refspec = f"+refs/heads/{branch_name}:refs/remotes/{remote_name}/{branch_name}"
-    log.info(
+    log.debug(
         "fetching remote branch",
         remote=remote_name,
         branch=branch_name,
@@ -188,23 +187,23 @@ def get_default_branch(
             if fetch and log:
                 fetch_remote_branch(repo, remote_name, branch_name, log)
             if log:
-                log.info("using remote branch reference", ref=ref)
+                log.debug("using remote branch reference", ref=ref)
             return ref
 
         if log:
-            log.warning("no remote default branch found, falling back to local")
+            log.debug("no remote default branch found, falling back to local")
 
     local_default_branch = find_local_default_branch(repo, reference_ref=reference_ref)
     if local_default_branch:
         if log:
-            log.info("using local branch reference", ref=local_default_branch)
+            log.debug("using local branch reference", ref=local_default_branch)
         return local_default_branch
 
     for branch in ["main", "master"]:
         try:
             repo.commit(branch)
             if log:
-                log.info("using local branch reference", ref=branch)
+                log.debug("using local branch reference", ref=branch)
             return branch
         except (BadName, GitCommandError):
             continue
@@ -212,13 +211,13 @@ def get_default_branch(
     try:
         remote_head = repo.remotes.origin.refs.HEAD.ref.name
         if log:
-            log.info("using origin head reference", ref=remote_head)
+            log.debug("using origin head reference", ref=remote_head)
         return remote_head.replace("origin/", "")
     except (AttributeError, IndexError, GitCommandError):
         pass
 
     if log:
-        log.info("using fallback branch reference", ref="main")
+        log.debug("using fallback branch reference", ref="main")
     return "main"
 
 
@@ -231,11 +230,11 @@ def get_recent_version_tags(
 
     try:
         if log:
-            log.info("fetching tags from origin")
+            log.debug("fetching tags from origin")
         repo.remotes.origin.fetch(tags=True)
     except (AttributeError, GitCommandError):
         if log:
-            log.warning("failed to fetch tags from origin")
+            log.debug("failed to fetch tags from origin")
 
     version_pattern = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
     tags_with_versions: list[tuple[tuple[int, int, int], str]] = []
@@ -453,7 +452,7 @@ def extract_history(
         else:
             target_branch = branch
 
-        log.info("comparing branch against remote default", target_branch=target_branch)
+        log.debug("comparing branch against remote default", target_branch=target_branch)
         default_repo_branch = get_default_branch(
             repo,
             use_remote=True,
@@ -502,7 +501,7 @@ def extract_history(
             reference_ref=until_commit,
         )
 
-    log.info("selected reference branch", branch=default_repo_branch)
+    log.debug("selected reference branch", branch=default_repo_branch)
 
     if remote and until_commit == "HEAD":
         until_commit = default_repo_branch
@@ -512,7 +511,7 @@ def extract_history(
     else:
         range_str = f"since={since}"
 
-    log.info("git commit range", range=range_str)
+    log.debug("git commit range", range=range_str)
 
     commits = get_git_commits(
         since,
@@ -600,11 +599,6 @@ def extract_history(
     default=True,
     help="Use remote references (upstream then origin) instead of local (default: remote). Upstream is preferred since often when a fork is in place, the master/main branch on the origin is not kept up to date.",
 )
-@click.option(
-    "--verbose",
-    is_flag=True,
-    help="Enable DEBUG level logging",
-)
 def main(
     since: str | None,
     since_commit: str | None,
@@ -614,13 +608,7 @@ def main(
     trailers: str | None,
     output_format: str,
     remote: bool,
-    verbose: bool,
 ):
-    os.environ.setdefault("LOG_LEVEL", "WARN")
-
-    if verbose:
-        os.environ["LOG_LEVEL"] = "DEBUG"
-
     log = configure_logger(
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
     )

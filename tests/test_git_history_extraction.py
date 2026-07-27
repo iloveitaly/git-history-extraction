@@ -642,7 +642,7 @@ class TestCLIBranchOption:
         assert "Commit on feature-b" in result.output
         assert "Commit on main" not in result.output
 
-    def test_main_defaults_log_level_to_warn(self, tmp_path):
+    def test_main_does_not_set_log_level(self, tmp_path):
         observed_levels: list[str | None] = []
 
         def fake_configure_logger(*args, **kwargs):
@@ -651,7 +651,7 @@ class TestCLIBranchOption:
 
         runner = CliRunner()
         with (
-            patch.dict("git_history_extraction.os.environ", {}, clear=False),
+            patch.dict(os.environ, {}, clear=False),
             patch(
                 "git_history_extraction.configure_logger",
                 side_effect=fake_configure_logger,
@@ -662,7 +662,7 @@ class TestCLIBranchOption:
             result = runner.invoke(main, ["--repo", str(tmp_path)])
 
         assert result.exit_code == 0
-        assert observed_levels == ["WARN"]
+        assert observed_levels == [None]
 
 
 class TestRemoteDefaultBranchDetection:
