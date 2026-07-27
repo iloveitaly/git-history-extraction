@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.2](https://github.com/iloveitaly/git-history-extraction/compare/v0.11.1...v0.11.2) (2026-07-27)
+
+
+### Bug Fixes
+
+* trigger patch release ([ddf72d6](https://github.com/iloveitaly/git-history-extraction/commit/ddf72d6ef34038d3c6d54066d6fe31fa9ad9c49f))
+
 ## [0.11.1](https://github.com/iloveitaly/git-history-extraction/compare/v0.11.0...v0.11.1) (2026-07-17)
 
 
