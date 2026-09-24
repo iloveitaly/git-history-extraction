@@ -40,9 +40,7 @@ from git_history_extraction import extract_history
 
 # Returns a list of dictionaries with sha, date, body, files, etc.
 commits = extract_history(
-    since="last monday",
-    trailers="User-facing",
-    include_stats=True
+    since="last monday", trailers="User-facing", include_stats=True
 )
 
 for commit in commits:

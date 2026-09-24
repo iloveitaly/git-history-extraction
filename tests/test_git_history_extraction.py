@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -36,7 +36,7 @@ class TestIsGitRepository:
 class TestGetLastMonday:
     def test_returns_last_monday_when_today_is_wednesday(self):
         with patch("git_history_extraction.datetime") as mock_datetime:
-            wednesday = datetime(2025, 1, 15, 14, 30, 45)
+            wednesday = datetime(2025, 1, 15, 14, 30, 45, tzinfo=UTC)
             mock_datetime.now.return_value = wednesday
 
             result = get_last_monday()
@@ -45,7 +45,7 @@ class TestGetLastMonday:
 
     def test_returns_today_when_today_is_monday(self):
         with patch("git_history_extraction.datetime") as mock_datetime:
-            monday = datetime(2025, 1, 13, 14, 30, 45)
+            monday = datetime(2025, 1, 13, 14, 30, 45, tzinfo=UTC)
             mock_datetime.now.return_value = monday
 
             result = get_last_monday()
@@ -54,7 +54,7 @@ class TestGetLastMonday:
 
     def test_returns_last_monday_when_today_is_sunday(self):
         with patch("git_history_extraction.datetime") as mock_datetime:
-            sunday = datetime(2025, 1, 19, 14, 30, 45)
+            sunday = datetime(2025, 1, 19, 14, 30, 45, tzinfo=UTC)
             mock_datetime.now.return_value = sunday
 
             result = get_last_monday()

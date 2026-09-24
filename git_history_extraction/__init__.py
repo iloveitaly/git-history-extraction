@@ -1,6 +1,6 @@
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import click
@@ -42,7 +42,7 @@ def is_git_repository(repo_path: Path) -> bool:
 
 def get_last_monday() -> str:
     """Return last Monday at midnight as git-compatible timestamp."""
-    today = datetime.now()
+    today = datetime.now(tz=UTC)
     days_since_monday = today.weekday()
     if days_since_monday == 0:
         last_monday = today
@@ -266,7 +266,7 @@ def get_commit_files(sha: str, repo_path: Path | None = None) -> list[str]:
     """Return list of file paths changed in a commit."""
     repo = Repo(repo_path if repo_path else ".")
     commit = repo.commit(sha)
-    return [str(f) for f in commit.stats.files.keys()]
+    return [str(f) for f in commit.stats.files]
 
 
 def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]:
@@ -291,7 +291,7 @@ def get_file_change_stats(sha: str, repo_path: Path | None = None) -> list[dict]
             else:
                 status_map[diff.b_path or diff.a_path] = "M"
     else:
-        for filepath in commit.stats.files.keys():
+        for filepath in commit.stats.files:
             status_map[filepath] = "A"
 
     file_stats = []
@@ -452,7 +452,9 @@ def extract_history(
         else:
             target_branch = branch
 
-        log.debug("comparing branch against remote default", target_branch=target_branch)
+        log.debug(
+            "comparing branch against remote default", target_branch=target_branch
+        )
         default_repo_branch = get_default_branch(
             repo,
             use_remote=True,
@@ -652,7 +654,7 @@ def main(
             out_lines.append(f"Commit: {c['sha']}")
             out_lines.append(f"Date: {c['date']}")
 
-            if "file_stats" in c and c["file_stats"]:
+            if c.get("file_stats"):
                 out_lines.append("Files:")
                 for stat in c["file_stats"]:
                     type_label = {
@@ -683,7 +685,7 @@ def main(
             click.echo(f"Commit: {c['sha']}")
             click.echo(f"Date: {c['date']}")
 
-            if "file_stats" in c and c["file_stats"]:
+            if c.get("file_stats"):
                 click.echo("\nFiles:")
                 for stat in c["file_stats"]:
                     type_label = {
