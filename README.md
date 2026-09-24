@@ -11,6 +11,7 @@ A tool to extract and filter git commit history, making it easy to pipe to AI to
 
 - Extract git commits with metadata (SHA, date, files, message)
 - Filter commits by time range or starting commit
+- Stacked PR awareness with `gh stack` support (`--stack-aware`)
 - Extract and filter git trailers (e.g., `Co-authored-by`, `User-Facing`)
 - Output in simple text or JSON format
 - Pipe output to AI tools (OpenAI, Gemini, Claude) for automated summarization
@@ -97,6 +98,15 @@ git-history-extraction --branch feature-branch
 
 # Defaults to the current active branch if no branch is specified
 git-history-extraction --branch
+```
+
+Stacked PRs (`gh stack`):
+```bash
+# Compares current branch against the parent branch it is stacked on top of
+git-history-extraction --stack-aware
+
+# Explicitly specify a branch within a stack
+git-history-extraction --branch feature-2 --stack-aware
 ```
 
 ### Git Trailers

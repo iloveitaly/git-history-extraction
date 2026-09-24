@@ -14,6 +14,7 @@ from git import (
 )
 from structlog_config import configure_logger
 
+from .stack import resolve_stack_parent_branch
 from .version import __version__
 
 
@@ -422,6 +423,7 @@ def extract_history(
     remote=True,
     include_stats=True,
     trailers=None,
+    stack_aware=False,
 ):
     """
     Extracts git history based on the provided parameters.
@@ -433,9 +435,53 @@ def extract_history(
     if not is_git_repository(repo):
         raise ValueError(f"'{repo}' is not a git repository.")
 
+    if stack_aware and (
+        since is not None or since_commit is not None or since_last_tag is not None
+    ):
+        raise ValueError(
+            "--stack-aware cannot be combined with --since, --since-commit, or --since-last-tag."
+        )
+
     until_commit = "HEAD"
     default_repo_branch: str | None = None
-    if branch is not None:
+    if stack_aware:
+        repo_obj = Repo(repo)
+        if branch is None or branch == "":
+            try:
+                target_branch = repo_obj.active_branch.name
+            except TypeError:
+                raise ValueError(
+                    "Repository is in a detached HEAD state. Please specify a branch name."
+                ) from None
+        else:
+            target_branch = branch
+
+        parent_branch, stack_idx, total_branches, trunk_branch = (
+            resolve_stack_parent_branch(repo_obj, target_branch)
+        )
+        log.debug(
+            "resolved gh stack parent branch",
+            target_branch=target_branch,
+            parent_branch=parent_branch,
+            position=stack_idx,
+            total=total_branches,
+            trunk=trunk_branch,
+        )
+
+        if parent_branch == trunk_branch:
+            default_repo_branch = get_default_branch(
+                repo,
+                use_remote=remote,
+                fetch=remote,
+                log=log,
+                reference_ref=target_branch,
+            )
+            since_commit = default_repo_branch
+        else:
+            since_commit = parent_branch
+
+        until_commit = target_branch
+    elif branch is not None:
         if since is not None or since_commit is not None or since_last_tag is not None:
             raise ValueError(
                 "--branch cannot be combined with --since, --since-commit, or --since-last-tag."
@@ -491,7 +537,7 @@ def extract_history(
         else:
             until_commit = tags[since_last_tag - 1]
 
-    if since is None and since_commit is None and branch is None:
+    if since is None and since_commit is None and branch is None and not stack_aware:
         since = get_last_monday()
 
     if default_repo_branch is None:
@@ -597,6 +643,12 @@ def extract_history(
     help="Output format (default: simple)",
 )
 @click.option(
+    "--stack-aware",
+    is_flag=True,
+    default=False,
+    help="Compare against the parent branch in gh stack. Can be used alone (defaults to current branch) or with --branch.",
+)
+@click.option(
     "--remote/--local",
     default=True,
     help="Use remote references (upstream then origin) instead of local (default: remote). Upstream is preferred since often when a fork is in place, the master/main branch on the origin is not kept up to date.",
@@ -610,6 +662,7 @@ def main(
     trailers: str | None,
     output_format: str,
     remote: bool,
+    stack_aware: bool,
 ):
     log = configure_logger(
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
@@ -627,6 +680,7 @@ def main(
             remote=remote,
             include_stats=include_stats,
             trailers=trailers,
+            stack_aware=stack_aware,
         )
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
