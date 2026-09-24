@@ -137,11 +137,9 @@ dmypy.json
 tmp/
 
 # START AI INSTRUCTION IGNORES
-/.agents/rules/python.md
+/.agents/rules/general.md
 /.agents/rules/python.md
 /.agents/skills/standalone-python-scripts/SKILL.md
-/.agents/skills/standalone-python-scripts/SKILL.md
-/.agents/skills/write-or-update-readme/SKILL.md
 /.agents/skills/write-or-update-readme/SKILL.md
 /.claude/commands/standalone-python-scripts.md
 /.claude/commands/write-or-update-readme.md
@@ -151,8 +149,6 @@ tmp/
 /.cursor/commands/write-or-update-readme.md
 /.cursor/rules/general.mdc
 /.cursor/rules/python.mdc
-/.gemini/commands/standalone-python-scripts.toml
-/.gemini/commands/write-or-update-readme.toml
 /.github/copilot-instructions.md
 /.github/instructions/python.instructions.md
 /.github/prompts/standalone-python-scripts.prompt.md
@@ -160,5 +156,4 @@ tmp/
 /.opencode/commands/standalone-python-scripts.md
 /.opencode/commands/write-or-update-readme.md
 /AGENTS.md
-/GEMINI.md
 # END AI INSTRUCTION IGNORES
