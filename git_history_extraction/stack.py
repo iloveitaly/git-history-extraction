@@ -1,7 +1,5 @@
 """gh stack integration for stacked PR workflows."""
 
-from __future__ import annotations
-
 import json
 import shutil
 import subprocess
@@ -49,7 +47,7 @@ class Stack:
         return self.trunk
 
 
-def find_stack_file(repo: Repo) -> Path | None:
+def find_stack_file(repo: "Repo") -> Path | None:
     candidates: list[Path] = []
     if hasattr(repo, "git_dir"):
         candidates.append(Path(repo.git_dir) / "gh-stack")
@@ -62,7 +60,7 @@ def find_stack_file(repo: Repo) -> Path | None:
     return None
 
 
-def load_stacks_from_disk(repo: Repo) -> list[Stack]:
+def load_stacks_from_disk(repo: "Repo") -> list[Stack]:
     stack_file = find_stack_file(repo)
     if not stack_file:
         return []
@@ -70,6 +68,9 @@ def load_stacks_from_disk(repo: Repo) -> list[Stack]:
     try:
         data = json.loads(stack_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
+        return []
+
+    if not isinstance(data, dict):
         return []
 
     stacks_data = data.get("stacks", [])
@@ -107,6 +108,7 @@ def load_stack_from_gh_cli(repo_dir: Path) -> Stack | None:
         proc = subprocess.run(
             ["gh", "stack", "view", "--json"],
             cwd=repo_dir,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             timeout=5,
@@ -135,7 +137,7 @@ def load_stack_from_gh_cli(repo_dir: Path) -> Stack | None:
 
 
 def resolve_stack_parent_branch(
-    repo: Repo, branch_name: str
+    repo: "Repo", branch_name: str
 ) -> tuple[str, int, int, str]:
     """
     Find the stack containing branch_name and return:

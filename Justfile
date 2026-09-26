@@ -12,6 +12,42 @@ setup:
     if [ -f instructions.md ]; then uvx llm-ide-rules explode; fi
     @echo "activate: source ./.venv/bin/activate"
 
+# Install this checkout as the global CLI (editable).
+#
+# `uv tool install -e` alone is not enough when mise activates
+# `pipx:$pkg_name` — those isolated envs sit ahead of ~/.local/bin on PATH.
+# Patch every installed mise version (active + inactive) via `mise ls --json`.
+# Re-run after `mise upgrade pipx:$pkg_name` (it overwrites editable installs).
+[script]
+install_editable:
+    pkg_name=$(sed -n 's/^name = "\(.*\)"/\1/p' pyproject.toml | tr -d '[:space:]')
+    echo "Installing $pkg_name in editable mode..."
+    uv tool install --force --editable .
+
+    if ! command -v mise >/dev/null; then
+        echo "mise not on PATH; uv tool only"
+    else
+        mise ls --json --installed "pipx:$pkg_name" \
+            | jq -r '.[].install_path' \
+            | while IFS= read -r install_path; do
+                [ -n "$install_path" ] || continue
+                py="$install_path/$pkg_name/bin/python"
+                if [ ! -x "$py" ]; then
+                    py=$(find "$install_path" -maxdepth 3 -type f -name python -perm -111 2>/dev/null | head -n 1)
+                    if [ -z "$py" ] || [ ! -x "$py" ]; then
+                        echo "skip $install_path (no venv python)"
+                        continue
+                    fi
+                fi
+                echo "editable into mise env: $install_path"
+                uv pip install --python "$py" --reinstall-package "$pkg_name" --editable .
+            done
+        mise reshim 2>/dev/null || true
+    fi
+
+    echo "Active CLI: $(command -v "$pkg_name")"
+    "$pkg_name" --version
+
 # Start docker services
 docker_up:
     docker compose up -d --wait
