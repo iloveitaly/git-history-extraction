@@ -14,7 +14,7 @@ from git import (
 )
 from structlog_config import configure_logger
 
-from .stack import resolve_stack_parent_branch
+from .stack import find_stack_parent_branch
 from .version import __version__
 
 
@@ -84,7 +84,10 @@ def get_local_branch(repo: Repo, branch_name: str):
         return None
 
 
-def find_local_default_branch(repo: Repo, reference_ref: str = "HEAD") -> str | None:
+def find_local_default_branch(
+    repo: Repo, reference_ref: str | None = "HEAD"
+) -> str | None:
+    ref = reference_ref or "HEAD"
     candidate_branch_names = [
         branch_name
         for branch_name in ["main", "master"]
@@ -94,15 +97,15 @@ def find_local_default_branch(repo: Repo, reference_ref: str = "HEAD") -> str | 
     if not candidate_branch_names:
         return None
 
-    if reference_ref in candidate_branch_names:
-        return reference_ref
+    if ref in candidate_branch_names:
+        return ref
 
     selected_branch_name: str | None = None
     selected_merge_base_time = -1
 
     for branch_name in candidate_branch_names:
         try:
-            merge_bases = repo.merge_base(reference_ref, branch_name)
+            merge_bases = repo.merge_base(ref, branch_name)
         except (BadName, GitCommandError):
             continue
 
@@ -138,9 +141,10 @@ def find_tracking_branch(
 
 def find_remote_default_branch(
     repo: Repo,
-    reference_ref: str = "HEAD",
+    reference_ref: str | None = "HEAD",
 ) -> tuple[str, str, str] | None:
-    local_default_branch = find_local_default_branch(repo, reference_ref)
+    ref = reference_ref or "HEAD"
+    local_default_branch = find_local_default_branch(repo, ref)
     if local_default_branch:
         tracking_branch = find_tracking_branch(repo, local_default_branch)
         if tracking_branch:
@@ -160,13 +164,13 @@ def find_remote_default_branch(
             except AttributeError:
                 continue
 
-            ref = f"{remote_name}/{branch_name}"
+            remote_branch_ref = f"{remote_name}/{branch_name}"
             try:
-                repo.commit(ref)
+                repo.commit(remote_branch_ref)
             except (BadName, GitCommandError):
                 continue
 
-            return ref, remote_name, branch_name
+            return remote_branch_ref, remote_name, branch_name
 
     return None
 
@@ -176,13 +180,14 @@ def get_default_branch(
     use_remote: bool = False,
     fetch: bool = False,
     log: structlog.typing.FilteringBoundLogger | None = None,
-    reference_ref: str = "HEAD",
+    reference_ref: str | None = "HEAD",
 ) -> str:
     """Return the default branch name (main or master), optionally as a remote ref."""
     repo = Repo(repo_path if repo_path else ".")
+    ref = reference_ref or "HEAD"
 
     if use_remote:
-        remote_ref = find_remote_default_branch(repo, reference_ref=reference_ref)
+        remote_ref = find_remote_default_branch(repo, reference_ref=ref)
         if remote_ref:
             ref, remote_name, branch_name = remote_ref
             if fetch and log:
@@ -423,7 +428,7 @@ def extract_history(
     remote=True,
     include_stats=True,
     trailers=None,
-    stack_aware=False,
+    stack_aware=True,
 ):
     """
     Extracts git history based on the provided parameters.
@@ -435,93 +440,15 @@ def extract_history(
     if not is_git_repository(repo):
         raise ValueError(f"'{repo}' is not a git repository.")
 
-    if stack_aware and (
+    if branch is not None and (
         since is not None or since_commit is not None or since_last_tag is not None
     ):
         raise ValueError(
-            "--stack-aware cannot be combined with --since, --since-commit, or --since-last-tag."
+            "--branch cannot be combined with --since, --since-commit, or --since-last-tag."
         )
 
     until_commit = "HEAD"
     default_repo_branch: str | None = None
-    if stack_aware:
-        repo_obj = Repo(repo)
-        if branch is None or branch == "":
-            try:
-                target_branch = repo_obj.active_branch.name
-            except TypeError:
-                raise ValueError(
-                    "Repository is in a detached HEAD state. Please specify a branch name."
-                ) from None
-        else:
-            target_branch = branch
-
-        parent_branch, stack_idx, total_branches, trunk_branch = (
-            resolve_stack_parent_branch(repo_obj, target_branch)
-        )
-        log.debug(
-            "resolved gh stack parent branch",
-            target_branch=target_branch,
-            parent_branch=parent_branch,
-            position=stack_idx,
-            total=total_branches,
-            trunk=trunk_branch,
-        )
-
-        if parent_branch == trunk_branch:
-            default_repo_branch = get_default_branch(
-                repo,
-                use_remote=remote,
-                fetch=remote,
-                log=log,
-                reference_ref=target_branch,
-            )
-            since_commit = default_repo_branch
-        else:
-            since_commit = parent_branch
-
-        until_commit = target_branch
-    elif branch is not None:
-        if since is not None or since_commit is not None or since_last_tag is not None:
-            raise ValueError(
-                "--branch cannot be combined with --since, --since-commit, or --since-last-tag."
-            )
-
-        repo_obj = Repo(repo)
-        if branch == "":
-            try:
-                target_branch = repo_obj.active_branch.name
-            except TypeError:
-                raise ValueError(
-                    "Repository is in a detached HEAD state. Please specify a branch name."
-                ) from None
-        else:
-            target_branch = branch
-
-        log.debug(
-            "comparing branch against remote default", target_branch=target_branch
-        )
-        default_repo_branch = get_default_branch(
-            repo,
-            use_remote=True,
-            fetch=True,
-            log=log,
-            reference_ref=target_branch,
-        )
-        branch_name = default_repo_branch.split("/", 1)[-1]
-        invalid_branches = {
-            default_repo_branch,
-            branch_name,
-            "main",
-            "master",
-            f"origin/{branch_name}",
-            f"upstream/{branch_name}",
-        }
-        if target_branch in invalid_branches:
-            raise ValueError(f"'{target_branch}' is not a valid value for --branch.")
-
-        since_commit = default_repo_branch
-        until_commit = target_branch
 
     latest_tag = None
     if since_last_tag is not None:
@@ -537,8 +464,84 @@ def extract_history(
         else:
             until_commit = tags[since_last_tag - 1]
 
-    if since is None and since_commit is None and branch is None and not stack_aware:
-        since = get_last_monday()
+    if since is None and since_commit is None and since_last_tag is None:
+        repo_obj = Repo(repo)
+        target_branch: str | None = None
+        if branch is not None:
+            if branch == "":
+                try:
+                    target_branch = repo_obj.active_branch.name
+                except TypeError:
+                    raise ValueError(
+                        "Repository is in a detached HEAD state. Please specify a branch name."
+                    ) from None
+            else:
+                target_branch = branch
+        else:
+            try:
+                target_branch = repo_obj.active_branch.name
+            except (TypeError, ValueError):
+                target_branch = None
+
+        stack_info = (
+            find_stack_parent_branch(repo_obj, target_branch)
+            if (stack_aware and target_branch)
+            else None
+        )
+
+        if stack_info is not None and target_branch is not None:
+            parent_branch, stack_idx, total_branches, trunk_branch = stack_info
+            log.debug(
+                "auto-detected gh stack parent branch",
+                target_branch=target_branch,
+                parent_branch=parent_branch,
+                position=stack_idx,
+                total=total_branches,
+                trunk=trunk_branch,
+            )
+
+            if parent_branch == trunk_branch:
+                default_repo_branch = get_default_branch(
+                    repo,
+                    use_remote=remote,
+                    fetch=remote,
+                    log=log,
+                    reference_ref=target_branch,
+                )
+                since_commit = default_repo_branch
+            else:
+                since_commit = parent_branch
+
+            until_commit = target_branch
+        elif branch is not None and target_branch is not None:
+            log.debug(
+                "comparing branch against remote default", target_branch=target_branch
+            )
+            default_repo_branch = get_default_branch(
+                repo,
+                use_remote=True,
+                fetch=True,
+                log=log,
+                reference_ref=target_branch,
+            )
+            branch_name = default_repo_branch.split("/", 1)[-1]
+            invalid_branches = {
+                default_repo_branch,
+                branch_name,
+                "main",
+                "master",
+                f"origin/{branch_name}",
+                f"upstream/{branch_name}",
+            }
+            if target_branch in invalid_branches:
+                raise ValueError(
+                    f"'{target_branch}' is not a valid value for --branch."
+                )
+
+            since_commit = default_repo_branch
+            until_commit = target_branch
+        else:
+            since = get_last_monday()
 
     if default_repo_branch is None:
         default_repo_branch = get_default_branch(
@@ -643,10 +646,9 @@ def extract_history(
     help="Output format (default: simple)",
 )
 @click.option(
-    "--stack-aware",
-    is_flag=True,
-    default=False,
-    help="Compare against the parent branch in gh stack. Can be used alone (defaults to current branch) or with --branch.",
+    "--stack-aware/--no-stack-aware",
+    default=True,
+    help="Automatically detect and use the parent branch in gh stack as comparison point (default: True). Use --no-stack-aware to disable.",
 )
 @click.option(
     "--remote/--local",

@@ -184,3 +184,17 @@ def resolve_stack_parent_branch(
 
     parent = matched_stack.active_base_branch(branch_name)
     return parent, idx, len(matched_stack.branches), matched_stack.trunk
+
+
+def find_stack_parent_branch(
+    repo: "Repo", branch_name: str
+) -> tuple[str, int, int, str] | None:
+    """
+    Safely find the stack containing branch_name and return:
+    (parent_branch, stack_index, total_branches_in_stack, trunk_branch),
+    or None if the branch is not in any stack, is trunk, or if stack loading fails.
+    """
+    try:
+        return resolve_stack_parent_branch(repo, branch_name)
+    except (ValueError, OSError):
+        return None

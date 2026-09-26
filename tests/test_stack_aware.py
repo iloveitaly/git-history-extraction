@@ -14,6 +14,7 @@ from git_history_extraction.stack import (
     Stack,
     StackBranch,
     find_stack_file,
+    find_stack_parent_branch,
     load_stack_from_gh_cli,
     load_stacks_from_disk,
     resolve_stack_parent_branch,
@@ -253,6 +254,25 @@ class TestResolveStackParentBranch:
             resolve_stack_parent_branch(repo, "non-existent")
 
 
+class TestFindStackParentBranch:
+    def test_find_parent_on_stacked_branch(self, tmp_path: Path):
+        repo = _setup_stacked_repo(tmp_path)
+        info = find_stack_parent_branch(repo, "feat-3")
+        assert info == ("feat-2", 2, 3, "main")
+
+    def test_find_parent_on_trunk_returns_none(self, tmp_path: Path):
+        repo = _setup_stacked_repo(tmp_path)
+        assert find_stack_parent_branch(repo, "main") is None
+
+    def test_find_parent_not_in_stack_returns_none(self, tmp_path: Path):
+        repo = _setup_stacked_repo(tmp_path)
+        assert find_stack_parent_branch(repo, "non-existent") is None
+
+    def test_find_parent_repo_without_stack_returns_none(self, tmp_path: Path):
+        repo = Repo.init(tmp_path)
+        assert find_stack_parent_branch(repo, "any-branch") is None
+
+
 def _setup_stacked_repo(repo_path: Path):
     """Create a git repo with a 3-branch stack."""
     repo = Repo.init(repo_path)
@@ -368,7 +388,6 @@ class TestExtractHistoryStackAware:
         commits = extract_history(
             repo_path=tmp_path,
             branch="feat-3",
-            stack_aware=True,
             remote=False,
         )
         assert len(commits) == 1
@@ -381,7 +400,6 @@ class TestExtractHistoryStackAware:
         commits = extract_history(
             repo_path=tmp_path,
             branch="feat-2",
-            stack_aware=True,
             remote=False,
         )
         assert len(commits) == 1
@@ -394,19 +412,17 @@ class TestExtractHistoryStackAware:
         commits = extract_history(
             repo_path=tmp_path,
             branch="feat-1",
-            stack_aware=True,
             remote=False,
         )
         assert len(commits) == 1
         assert "Commit on feat-1" in commits[0]["body"]
         assert "Initial commit on main" not in commits[0]["body"]
 
-    def test_extract_history_active_branch_default(self, tmp_path: Path):
+    def test_extract_history_active_branch_auto_detected(self, tmp_path: Path):
         _setup_stacked_repo(tmp_path)
-        # Current active branch is feat-3
+        # Current active branch is feat-3, automatically detected without flags
         commits = extract_history(
             repo_path=tmp_path,
-            stack_aware=True,
             remote=False,
         )
         assert len(commits) == 1
@@ -436,54 +452,101 @@ class TestExtractHistoryStackAware:
         commits = extract_history(
             repo_path=tmp_path,
             branch="feat-2",
-            stack_aware=True,
             remote=False,
         )
-        # Commits from feat-2 and feat-1 (since feat-1 was based on main)
         bodies = [c["body"] for c in commits]
         assert any("Commit on feat-2" in b for b in bodies)
         assert not any("Initial commit on main" in b for b in bodies)
 
-    def test_stack_aware_conflict_with_since(self, tmp_path: Path):
+    def test_extract_history_opt_out_stack_aware(self, tmp_path: Path):
         _setup_stacked_repo(tmp_path)
-        with pytest.raises(
-            ValueError, match="--stack-aware cannot be combined with --since"
-        ):
-            extract_history(repo_path=tmp_path, stack_aware=True, since="yesterday")
+        # With stack_aware=False and branch="feat-3", it compares against main
+        commits = extract_history(
+            repo_path=tmp_path,
+            branch="feat-3",
+            stack_aware=False,
+            remote=False,
+        )
+        bodies = [c["body"] for c in commits]
+        assert any("Commit on feat-3" in b for b in bodies)
+        assert any("Commit on feat-2" in b for b in bodies)
+        assert any("Commit on feat-1" in b for b in bodies)
 
-    def test_stack_aware_on_trunk_fails(self, tmp_path: Path):
+    def test_extract_history_explicit_since_bypasses_stack(self, tmp_path: Path):
         _setup_stacked_repo(tmp_path)
-        with pytest.raises(ValueError, match="is the trunk branch"):
-            extract_history(
-                repo_path=tmp_path,
-                branch="main",
-                stack_aware=True,
-                remote=False,
-            )
+        # Explicit since overrides stack parent comparison
+        commits = extract_history(repo_path=tmp_path, since="yesterday", remote=False)
+        assert isinstance(commits, list)
+
+    def test_extract_history_on_trunk_falls_back(self, tmp_path: Path):
+        repo = _setup_stacked_repo(tmp_path)
+        # Checkout trunk branch main
+        repo.git.checkout("main")
+        commits = extract_history(repo_path=tmp_path, remote=False)
+        assert isinstance(commits, list)
+
+    def test_extract_history_not_in_stack_falls_back(self, tmp_path: Path):
+        repo_path = tmp_path / "repo_no_stack"
+        Repo.init(repo_path)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=repo_path,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+        )
+        subprocess.run(["git", "checkout", "-b", "main"], cwd=repo_path, check=True)
+        (repo_path / "file.txt").write_text("hello")
+        subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=repo_path, check=True)
+
+        commits = extract_history(repo_path=repo_path, remote=False)
+        assert isinstance(commits, list)
 
 
 class TestCLIStackAware:
-    def test_cli_stack_aware_active_branch(self, tmp_path: Path):
+    def test_cli_auto_detect_active_branch(self, tmp_path: Path):
         _setup_stacked_repo(tmp_path)
         runner = CliRunner()
+        # No --stack-aware needed! Automatically detected.
         result = runner.invoke(
             main,
-            ["--repo", str(tmp_path), "--stack-aware", "--local"],
+            ["--repo", str(tmp_path), "--local"],
         )
         assert result.exit_code == 0
         assert "Commit on feat-3" in result.stdout
         assert "Commit on feat-2" not in result.stdout
 
-    def test_cli_stack_aware_explicit_branch(self, tmp_path: Path):
+    def test_cli_explicit_branch_auto_stack(self, tmp_path: Path):
         _setup_stacked_repo(tmp_path)
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["--repo", str(tmp_path), "--branch", "feat-2", "--stack-aware", "--local"],
+            ["--repo", str(tmp_path), "--branch", "feat-2", "--local"],
         )
         assert result.exit_code == 0
         assert "Commit on feat-2" in result.stdout
         assert "Commit on feat-1" not in result.stdout
+
+    def test_cli_no_stack_aware_opt_out(self, tmp_path: Path):
+        _setup_stacked_repo(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "--repo",
+                str(tmp_path),
+                "--branch",
+                "feat-3",
+                "--no-stack-aware",
+                "--local",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Commit on feat-3" in result.stdout
+        assert "Commit on feat-2" in result.stdout
+        assert "Commit on feat-1" in result.stdout
 
     def test_cli_stack_aware_json_format(self, tmp_path: Path):
         _setup_stacked_repo(tmp_path)
@@ -493,7 +556,6 @@ class TestCLIStackAware:
             [
                 "--repo",
                 str(tmp_path),
-                "--stack-aware",
                 "--local",
                 "--format",
                 "json",
@@ -505,7 +567,7 @@ class TestCLIStackAware:
         assert len(data) == 1
         assert "Commit on feat-3" in data[0]["body"]
 
-    def test_cli_stack_aware_not_in_stack_error(self, tmp_path: Path):
+    def test_cli_repo_without_stack_succeeds(self, tmp_path: Path):
         repo_path = tmp_path / "repo_no_stack"
         Repo.init(repo_path)
         subprocess.run(
@@ -525,7 +587,6 @@ class TestCLIStackAware:
         runner = CliRunner()
         result = runner.invoke(
             main,
-            ["--repo", str(repo_path), "--stack-aware"],
+            ["--repo", str(repo_path), "--local"],
         )
-        assert result.exit_code != 0
-        assert "is not part of a gh stack" in result.output
+        assert result.exit_code == 0
