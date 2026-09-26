@@ -11,7 +11,7 @@ A tool to extract and filter git commit history, making it easy to pipe to AI to
 
 - Extract git commits with metadata (SHA, date, files, message)
 - Filter commits by time range or starting commit
-- Stacked PR awareness with `gh stack` support (`--stack-aware`)
+- Automatic stacked PR detection with `gh stack` support (opt out with `--no-stack-aware`)
 - Extract and filter git trailers (e.g., `Co-authored-by`, `User-Facing`)
 - Output in simple text or JSON format
 - Pipe output to AI tools (OpenAI, Gemini, Claude) for automated summarization
@@ -102,11 +102,14 @@ git-history-extraction --branch
 
 Stacked PRs (`gh stack`):
 ```bash
-# Compares current branch against the parent branch it is stacked on top of
-git-history-extraction --stack-aware
+# Automatically detects if the current branch is part of a gh stack and compares against its parent branch
+git-history-extraction
 
 # Explicitly specify a branch within a stack
-git-history-extraction --branch feature-2 --stack-aware
+git-history-extraction --branch feature-2
+
+# Opt out of stack detection and compare branch directly against default branch (e.g. main)
+git-history-extraction --branch feature-2 --no-stack-aware
 ```
 
 ### Git Trailers
@@ -253,6 +256,8 @@ Array of commit objects:
 | `--branch TEXT` | Get commits unique to a branch. If omitted, uses current branch. (overrides `--since`) | None |
 | `--repo DIRECTORY` | Path to git repository | `.` (current directory) |
 | `--trailers TEXT` | Comma-separated trailer keys to extract | None (show all) |
+| `--stack-aware / --no-stack-aware` | Automatically detect and use parent branch in `gh stack` as comparison point | `True` |
+| `--remote / --local` | Use remote references instead of local | `--remote` |
 | `--format [simple\|json]` | Output format | `simple` |
 
 ## How It Works
