@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.0](https://github.com/iloveitaly/git-history-extraction/compare/v0.11.2...v0.12.0) (2026-10-05)
+
+
+### Features
+
+* add copier-template-sync skill guide ([e538b6c](https://github.com/iloveitaly/git-history-extraction/commit/e538b6c97c95744d570b42588d8f65eca0754e9c))
+* add stacked PR awareness with gh stack support ([80902ff](https://github.com/iloveitaly/git-history-extraction/commit/80902ff79ba6e8bdc78dfabfbe38e068652d228a))
+* enable stack-aware branch comparison by default ([67d8077](https://github.com/iloveitaly/git-history-extraction/commit/67d80775c57324ba4f37c6f57488b36a39e7d96a))
+
+
+### Bug Fixes
+
+* **stack:** handle non-dict JSON and prevent interactive gh CLI hangs ([6fa6476](https://github.com/iloveitaly/git-history-extraction/commit/6fa647635ac9954d8aa8cf75da6437b8f6043a84))
+
+
+### Documentation
+
+* update stacked PR docs for auto-detection ([80cf045](https://github.com/iloveitaly/git-history-extraction/commit/80cf045c529dceaf79200a20d19a670f4a842245))
+
 ## [0.11.2](https://github.com/iloveitaly/git-history-extraction/compare/v0.11.1...v0.11.2) (2026-07-27)
 
 
