@@ -2,7 +2,7 @@
 
 [[tools.direnv]]
 version = "2.38.2"
-backend = "asdf:direnv"
+backend = "aqua:direnv/direnv"
 
 [[tools."github:casey/just"]]
 version = "1.59.0"
@@ -123,4 +123,4 @@ provenance = "github-attestations"
 
 [[tools.uv]]
 version = "0.13.5"
-backend = "asdf:uv"
+backend = "aqua:astral-sh/uv"
