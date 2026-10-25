@@ -108,9 +108,14 @@ git-history-extraction
 # Explicitly specify a branch within a stack
 git-history-extraction --branch feature-2
 
+# Manually specify a parent branch/commit to compare against
+git-history-extraction --branch feature-3 --stack-parent feature-1
+
 # Opt out of stack detection and compare branch directly against default branch (e.g. main)
 git-history-extraction --branch feature-2 --no-stack-aware
 ```
+
+Stack-aware comparison automatically detects stacks targeting any trunk (e.g. `main`, `develop`, or release branches), correctly skips merged or queued ancestor PRs, excludes commits from squash-merged downstack ancestors so they don't leak into child diffs, and falls back gracefully if downstack parent branches were deleted locally.
 
 ### Git Trailers
 
@@ -257,6 +262,7 @@ Array of commit objects:
 | `--repo DIRECTORY` | Path to git repository | `.` (current directory) |
 | `--trailers TEXT` | Comma-separated trailer keys to extract | None (show all) |
 | `--stack-aware / --no-stack-aware` | Automatically detect and use parent branch in `gh stack` as comparison point | `True` |
+| `--stack-parent TEXT` | Explicitly specify the parent branch or commit to compare against in a stacked workflow | None |
 | `--remote / --local` | Use remote references instead of local | `--remote` |
 | `--format [simple\|json]` | Output format | `simple` |
 

@@ -2,6 +2,7 @@ import re
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 import click
 import structlog
@@ -14,7 +15,18 @@ from git import (
 )
 from structlog_config import configure_logger
 
-from .stack import find_stack_parent_branch
+from .stack import (
+    StackContext as StackContext,
+)
+from .stack import (
+    find_stack_parent_branch as find_stack_parent_branch,
+)
+from .stack import (
+    resolve_safe_parent_ref,
+)
+from .stack import (
+    resolve_stack_parent_branch as resolve_stack_parent_branch,
+)
 from .version import __version__
 
 
@@ -227,6 +239,46 @@ def get_default_branch(
     return "main"
 
 
+def resolve_trunk_branch(
+    repo: Repo,
+    trunk_branch: str,
+    remote: bool = True,
+    fetch: bool = True,
+    log: structlog.typing.FilteringBoundLogger | None = None,
+) -> str:
+    """Resolve the reference for a stack's trunk branch (local or remote)."""
+    if remote:
+        tracking = find_tracking_branch(repo, trunk_branch)
+        if tracking:
+            remote_ref, remote_name, remote_head = tracking
+            if fetch and log:
+                fetch_remote_branch(repo, remote_name, remote_head, log)
+            return remote_ref
+
+        for remote_name in ["upstream", "origin"]:
+            remote_ref = f"{remote_name}/{trunk_branch}"
+            try:
+                repo.commit(remote_ref)
+                if fetch and log:
+                    fetch_remote_branch(repo, remote_name, trunk_branch, log)
+                return remote_ref
+            except (BadName, GitCommandError):
+                continue
+
+    try:
+        repo.commit(trunk_branch)
+        return trunk_branch
+    except (BadName, GitCommandError):
+        pass
+
+    return get_default_branch(
+        Path(repo.working_dir) if repo.working_dir else Path("."),
+        use_remote=remote,
+        fetch=fetch,
+        log=log,
+    )
+
+
 def get_recent_version_tags(
     repo_path: Path | None = None,
     limit: int = 1,
@@ -325,13 +377,36 @@ def get_git_commits(
     until_commit="HEAD",
     repo_path: Path | None = None,
     include_stats: bool = False,
+    exclude_commits: list[str] | tuple[str, ...] | None = None,
 ):
     """Extract commits with sha, date, body, files. Optionally include per-file change stats."""
     repo = Repo(repo_path if repo_path else ".")
 
+    valid_excludes: list[str] = []
+    if exclude_commits:
+        for exc in exclude_commits:
+            try:
+                commit_obj = repo.commit(exc)
+                if commit_obj.hexsha not in valid_excludes:
+                    valid_excludes.append(commit_obj.hexsha)
+            except (BadName, GitCommandError):
+                continue
+
     if since_commit:
-        rev = f"{since_commit}..{until_commit}"
-        commits_iter = repo.iter_commits(rev)
+        if valid_excludes:
+            rev_args = [until_commit, f"^{since_commit}"] + [
+                f"^{exc}" for exc in valid_excludes if exc != since_commit
+            ]
+            commits_iter = repo.iter_commits(rev=cast(Any, rev_args))
+        else:
+            rev = f"{since_commit}..{until_commit}"
+            commits_iter = repo.iter_commits(rev)
+    elif valid_excludes:
+        rev_args = [until_commit] + [f"^{exc}" for exc in valid_excludes]
+        if since:
+            commits_iter = repo.iter_commits(rev=cast(Any, rev_args), since=since)
+        else:
+            commits_iter = repo.iter_commits(rev=cast(Any, rev_args))
     else:
         commits_iter = repo.iter_commits(until_commit, since=since)
 
@@ -429,6 +504,7 @@ def extract_history(
     include_stats=True,
     trailers=None,
     stack_aware=True,
+    stack_parent=None,
 ):
     """
     Extracts git history based on the provided parameters.
@@ -447,8 +523,16 @@ def extract_history(
             "--branch cannot be combined with --since, --since-commit, or --since-last-tag."
         )
 
+    if stack_parent is not None and (
+        since is not None or since_commit is not None or since_last_tag is not None
+    ):
+        raise ValueError(
+            "--stack-parent cannot be combined with --since, --since-commit, or --since-last-tag."
+        )
+
     until_commit = "HEAD"
     default_repo_branch: str | None = None
+    exclude_commits: list[str] = []
 
     latest_tag = None
     if since_last_tag is not None:
@@ -483,65 +567,101 @@ def extract_history(
             except (TypeError, ValueError):
                 target_branch = None
 
-        stack_info = (
-            find_stack_parent_branch(repo_obj, target_branch)
-            if (stack_aware and target_branch)
-            else None
-        )
-
-        if stack_info is not None and target_branch is not None:
-            parent_branch, stack_idx, total_branches, trunk_branch = stack_info
+        if stack_parent is not None:
+            since_commit = stack_parent
+            until_commit = target_branch or "HEAD"
             log.debug(
-                "auto-detected gh stack parent branch",
-                target_branch=target_branch,
-                parent_branch=parent_branch,
-                position=stack_idx,
-                total=total_branches,
-                trunk=trunk_branch,
+                "using explicit stack parent override",
+                stack_parent=stack_parent,
+                target_branch=until_commit,
+            )
+        else:
+            stack_info = (
+                find_stack_parent_branch(repo_obj, target_branch, allow_gh_cli=remote)
+                if (stack_aware and target_branch)
+                else None
             )
 
-            if parent_branch == trunk_branch:
+            if stack_info is not None and target_branch is not None:
+                parent_branch = stack_info.parent_branch
+                stack_idx = stack_info.stack_index
+                total_branches = stack_info.total_branches
+                trunk_branch = stack_info.trunk_branch
+                log.debug(
+                    "auto-detected gh stack parent branch",
+                    target_branch=target_branch,
+                    parent_branch=parent_branch,
+                    position=stack_idx,
+                    total=total_branches,
+                    trunk=trunk_branch,
+                )
+
+                exclude_commits = list(stack_info.exclude_refs)
+
+                if parent_branch == trunk_branch:
+                    default_repo_branch = resolve_trunk_branch(
+                        repo_obj,
+                        trunk_branch,
+                        remote=remote,
+                        fetch=remote,
+                        log=log,
+                    )
+                    since_commit = default_repo_branch
+                else:
+                    if stack_info.stack:
+                        parent_ref = resolve_safe_parent_ref(
+                            repo_obj,
+                            candidate_parent=parent_branch,
+                            stack=stack_info.stack,
+                            target_branch=target_branch,
+                            remote=remote,
+                        )
+                    else:
+                        parent_ref = parent_branch
+
+                    if parent_ref == trunk_branch:
+                        default_repo_branch = resolve_trunk_branch(
+                            repo_obj,
+                            trunk_branch,
+                            remote=remote,
+                            fetch=remote,
+                            log=log,
+                        )
+                        since_commit = default_repo_branch
+                    else:
+                        since_commit = parent_ref
+
+                until_commit = target_branch
+            elif branch is not None and target_branch is not None:
+                log.debug(
+                    "comparing branch against remote default",
+                    target_branch=target_branch,
+                )
                 default_repo_branch = get_default_branch(
                     repo,
-                    use_remote=remote,
-                    fetch=remote,
+                    use_remote=True,
+                    fetch=True,
                     log=log,
                     reference_ref=target_branch,
                 )
+                branch_name = default_repo_branch.split("/", 1)[-1]
+                invalid_branches = {
+                    default_repo_branch,
+                    branch_name,
+                    "main",
+                    "master",
+                    f"origin/{branch_name}",
+                    f"upstream/{branch_name}",
+                }
+                if target_branch in invalid_branches:
+                    raise ValueError(
+                        f"'{target_branch}' is not a valid value for --branch."
+                    )
+
                 since_commit = default_repo_branch
+                until_commit = target_branch
             else:
-                since_commit = parent_branch
-
-            until_commit = target_branch
-        elif branch is not None and target_branch is not None:
-            log.debug(
-                "comparing branch against remote default", target_branch=target_branch
-            )
-            default_repo_branch = get_default_branch(
-                repo,
-                use_remote=True,
-                fetch=True,
-                log=log,
-                reference_ref=target_branch,
-            )
-            branch_name = default_repo_branch.split("/", 1)[-1]
-            invalid_branches = {
-                default_repo_branch,
-                branch_name,
-                "main",
-                "master",
-                f"origin/{branch_name}",
-                f"upstream/{branch_name}",
-            }
-            if target_branch in invalid_branches:
-                raise ValueError(
-                    f"'{target_branch}' is not a valid value for --branch."
-                )
-
-            since_commit = default_repo_branch
-            until_commit = target_branch
-        else:
-            since = get_last_monday()
+                since = get_last_monday()
 
     if default_repo_branch is None:
         default_repo_branch = get_default_branch(
@@ -558,7 +678,10 @@ def extract_history(
         until_commit = default_repo_branch
 
     if since_commit:
-        range_str = f"{since_commit}..{until_commit}"
+        if exclude_commits:
+            range_str = f"{since_commit}..{until_commit} (excluding {', '.join(exclude_commits)})"
+        else:
+            range_str = f"{since_commit}..{until_commit}"
     else:
         range_str = f"since={since}"
 
@@ -570,6 +693,7 @@ def extract_history(
         until_commit=until_commit,
         repo_path=repo,
         include_stats=include_stats,
+        exclude_commits=exclude_commits,
     )
 
     if trailers is not None:
@@ -651,6 +775,12 @@ def extract_history(
     help="Automatically detect and use the parent branch in gh stack as comparison point (default: True). Use --no-stack-aware to disable.",
 )
 @click.option(
+    "--stack-parent",
+    type=str,
+    default=None,
+    help="Explicitly specify the parent branch or commit to compare against in a stacked workflow.",
+)
+@click.option(
     "--remote/--local",
     default=True,
     help="Use remote references (upstream then origin) instead of local (default: remote). Upstream is preferred since often when a fork is in place, the master/main branch on the origin is not kept up to date.",
@@ -665,6 +795,7 @@ def main(
     output_format: str,
     remote: bool,
     stack_aware: bool,
+    stack_parent: str | None,
 ):
     log = configure_logger(
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
@@ -683,6 +814,7 @@ def main(
             include_stats=include_stats,
             trailers=trailers,
             stack_aware=stack_aware,
+            stack_parent=stack_parent,
         )
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
