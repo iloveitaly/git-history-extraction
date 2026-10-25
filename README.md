@@ -272,6 +272,12 @@ Array of commit objects:
 - Large commit ranges may generate significant output; consider narrowing the time range
 - This tool extracts and formats data only—AI summarization requires external tools
 - Git must be available in PATH
+
+## Local CLI development
+
+Run `just install_editable` to install this checkout globally in editable mode. Source changes are reflected without reinstalling.
+
+This requires `uv`, `just`, `zsh`, and `jq`. If mise is available, the recipe also updates every installed `pipx:git-history-extraction` environment so mise can use the local checkout. Re-run after mise upgrades, which replace those editable installations.
 ---
 
 *This project was created from [iloveitaly/python-package-template](https://github.com/iloveitaly/python-package-template)*

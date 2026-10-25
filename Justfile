@@ -1,6 +1,10 @@
+
 # Line recipes and [script] recipes both use zsh with strict mode.
 set shell := ["zsh", "-euo", "pipefail", "-c"]
 set script-interpreter := ["zsh", "-euo", "pipefail"]
+
+# Ensure gh commands never trigger an interactive pager
+export GH_PAGER := "cat"
 
 # Set up the Python environment, done automatically for you when using direnv
 setup:
@@ -12,41 +16,43 @@ setup:
     if [ -f instructions.md ]; then uvx llm-ide-rules explode; fi
     @echo "activate: source ./.venv/bin/activate"
 
-# Install this checkout as the global CLI (editable).
-#
-# `uv tool install -e` alone is not enough when mise activates
-# `pipx:$pkg_name` — those isolated envs sit ahead of ~/.local/bin on PATH.
-# Patch every installed mise version (active + inactive) via `mise ls --json`.
-# Re-run after `mise upgrade pipx:$pkg_name` (it overwrites editable installs).
+# Install this checkout globally in editable mode, including existing mise environments.
+# Re-run after mise upgrades, which replace the editable installation.
 [script]
 install_editable:
-    pkg_name=$(sed -n 's/^name = "\(.*\)"/\1/p' pyproject.toml | tr -d '[:space:]')
-    echo "Installing $pkg_name in editable mode..."
+    command -v jq >/dev/null
+    metadata=$(uv run --no-project --python '>=3.12' python -c 'import json, tomllib; from pathlib import Path; p = tomllib.loads(Path("pyproject.toml").read_text())["project"]; print(json.dumps({"name": p["name"], "scripts": list(p.get("scripts", {}))}))')
+    package=$(echo "$metadata" | jq -r '.name')
+    # Python distribution names are normalized for uv/pipx environment directories.
+    env_name=$(echo "$package" | tr '[:upper:]' '[:lower:]' | sed -E 's/[-_.]+/-/g')
+
     uv tool install --force --editable .
 
     if ! command -v mise >/dev/null; then
         echo "mise not on PATH; uv tool only"
     else
-        mise ls --json --installed "pipx:$pkg_name" \
-            | jq -r '.[].install_path' \
-            | while IFS= read -r install_path; do
-                [ -n "$install_path" ] || continue
-                py="$install_path/$pkg_name/bin/python"
-                if [ ! -x "$py" ]; then
-                    py=$(find "$install_path" -maxdepth 3 -type f -name python -perm -111 2>/dev/null | head -n 1)
-                    if [ -z "$py" ] || [ ! -x "$py" ]; then
-                        echo "skip $install_path (no venv python)"
-                        continue
-                    fi
+        installs=$(mise ls --json --installed "pipx:$package")
+        echo "$installs" | jq -r '.[].install_path' | while IFS= read -r install_path; do
+            [ -n "$install_path" ] || continue
+            py=""
+            for candidate in "$install_path/$env_name/bin/python" "$install_path/.mise-uv/.venv/bin/python"; do
+                if [ -x "$candidate" ]; then
+                    py="$candidate"
+                    break
                 fi
-                echo "editable into mise env: $install_path"
-                uv pip install --python "$py" --reinstall-package "$pkg_name" --editable .
             done
-        mise reshim 2>/dev/null || true
+            if [ -z "$py" ]; then
+                echo "skip $install_path (no venv python)"
+                continue
+            fi
+            echo "editable into mise env: $install_path"
+            uv pip install --python "$py" --reinstall-package "$package" --editable .
+        done
     fi
 
-    echo "Active CLI: $(command -v "$pkg_name")"
-    "$pkg_name" --version
+    echo "$metadata" | jq -r '.scripts[]' | while IFS= read -r cli; do
+        command -v "$cli"
+    done
 
 # Start docker services
 docker_up:
@@ -55,11 +61,13 @@ docker_up:
 docker_down:
 	docker compose down
 
-# Upgrade tool versions, python dependencies, and optionally bump pyproject.toml constraints
+# Switch stale mise backends, upgrade tool versions and python dependencies, and optionally bump pyproject.toml constraints
 [script]
 [arg("bump_constraints", long="bump-constraints", value="true", help="Bump pyproject.toml minimum constraints using uv-bump")]
 upgrade bump_constraints="false":
     mise self-update --yes
+    # Upgrade keeps the backend recorded in mise.lock. Switch first so the bump installs from the registry's current backend.
+    mise backends switch --yes
     mise upgrade --yes --local
     uv sync --all-groups --all-extras -U
 
@@ -203,8 +211,7 @@ github_last_build_failure:
     if [[ "$CONCLUSION" == "success" ]]; then
         echo "latest build succeeded"
     else
-        # Force cat pager to output logs directly to terminal
-        GH_PAGER=cat gh run view "$ID" --log-failed
+        gh run view "$ID" --log-failed
     fi
 
 # Rerun only failed jobs for the last failed 'build' workflow for the current branch
